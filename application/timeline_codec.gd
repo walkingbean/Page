@@ -9,6 +9,7 @@ extends RefCounted
 ##             https://docs.dialogic.pro/reference-manager.html
 
 const MAX_SOURCE_BYTES: int = 4 * 1024 * 1024
+const VARIABLES = preload("res://application/text_variables.gd")
 
 
 static func normalize_source(source: String) -> String:
@@ -109,14 +110,13 @@ static func _validate(source: String, workspace: RefCounted) -> Dictionary:
 			continue
 		var body: String = match_result.get_string("text")
 		var body_offset: int = match_result.get_start("text") + escape_offset
+		# Alpha 20 first removes a raw event prefix above, then decodes and
+		# removes a second prefix from the trimmed Text body. Validate exactly
+		# what its variable parser receives, not an earlier escaped form.
+		var native_body: String = _native_text_body(body)
 		# Conservative scope, not a replacement for Dialogic's grammar. Report
 		# the actual physical source position without evaluating expressions.
-		var position: int = _first_of(body, "{}")
-		if position >= 0:
-			_add_raw_issue(issues, source_lines, source_columns, raw_event, body_offset + position,
-				"variables and expressions require a later version.")
-			continue
-		position = _first_of(body, "[]")
+		var position: int = _first_of(body, "[]")
 		if position >= 0:
 			_add_raw_issue(issues, source_lines, source_columns, raw_event, body_offset + position,
 				"BBCode, inline effects and text modifiers require a later version.")
@@ -125,6 +125,11 @@ static func _validate(source: String, workspace: RefCounted) -> Dictionary:
 		if random_match != null:
 			_add_raw_issue(issues, source_lines, source_columns, raw_event, body_offset + random_match.get_start(),
 				"random text selection requires a later version.")
+			continue
+		var variable_result: Dictionary = VARIABLES.inspect(native_body, workspace)
+		if variable_result.has("error"):
+			var raw_offset: int = _native_body_source_offset(body, int(variable_result.get("offset", 0)))
+			_add_raw_issue(issues, source_lines, source_columns, raw_event, body_offset + raw_offset, variable_result["error"])
 			continue
 		position = raw_event.find("#id:")
 		if position >= 0:
@@ -135,7 +140,7 @@ static func _validate(source: String, workspace: RefCounted) -> Dictionary:
 			narration_count += 1
 		else:
 			character_text_count += 1
-		expected_events.append({"kind": "text", "line": first_line, "identifier": speaker, "portrait": portrait})
+		expected_events.append({"kind": "text", "line": first_line, "identifier": speaker, "portrait": portrait, "text": native_body})
 
 	if not issues.is_empty():
 		return _result(issues, narration_count, comment_count, character_text_count, character_event_count)
@@ -171,6 +176,10 @@ static func _validate(source: String, workspace: RefCounted) -> Dictionary:
 	var result: Dictionary = _result(issues, narration_count, comment_count, character_text_count, character_event_count)
 	if issues.is_empty():
 		timeline.set_meta("preview_characters", characters)
+		var defaults: Dictionary = {}
+		if workspace != null and workspace.variable_document != null:
+			defaults = workspace.variable_document.runtime_values()
+		timeline.set_meta("preview_variables", defaults.duplicate(true))
 		result["_timeline"] = timeline
 	return result
 
@@ -228,6 +237,8 @@ static func _parsed_mismatch(parsed: DialogicEvent, expected: Dictionary, charac
 		return "" if parsed is DialogicCommentEvent else "The official parser did not preserve the Comment event."
 	if expected["kind"] == "text" and not parsed is DialogicTextEvent:
 		return "The official parser did not preserve the Text event."
+	if expected["kind"] == "text" and parsed.text != expected["text"]:
+		return "The official parser's decoded text does not match the validated Text body."
 	if expected["kind"] == "character" and not parsed is DialogicCharacterEvent:
 		return "The official parser did not preserve the Character event."
 	var identifier: String = expected["identifier"]
@@ -243,6 +254,34 @@ static func _parsed_mismatch(parsed: DialogicEvent, expected: Dictionary, charac
 		if parsed.action != expected["action"] or parsed.transform != expected["position"]:
 			return "The official parser found an unsupported Character action or position."
 	return ""
+
+
+static func _native_text_body(body: String) -> String:
+	# Keep this transformation identical to DialogicTextEvent.from_text.
+	var decoded: String = body.replace("\\\n", "\n").replace("\\:", ":").strip_edges().trim_prefix("\\")
+	return "" if decoded == "<Empty Text Event>" else decoded
+
+
+static func _native_body_source_offset(body: String, decoded_offset: int) -> int:
+	# Map only the reported offset rather than allocate a per-character map
+	# for every valid line. Continuation and colon escapes remove one source
+	# character each; trimming and the final body escape shift the start.
+	var decoded: String = body.replace("\\\n", "\n").replace("\\:", ":")
+	var left_trimmed: String = decoded.strip_edges(true, false)
+	var target: int = maxi(0, decoded_offset) + decoded.length() - left_trimmed.length()
+	if left_trimmed.strip_edges(false, true).begins_with("\\"):
+		target += 1
+	var source_index: int = 0
+	var output_index: int = 0
+	while source_index < body.length():
+		var width: int = 1
+		if body[source_index] == "\\" and source_index + 1 < body.length() and body[source_index + 1] in ["\n", ":"]:
+			width = 2
+		if output_index == target:
+			return source_index
+		source_index += width
+		output_index += 1
+	return body.length()
 
 
 static func _first_of(text: String, characters: String) -> int:

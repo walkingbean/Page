@@ -264,7 +264,8 @@ static func _read_bytes(target: String) -> Dictionary:
 static func _digest(bytes: PackedByteArray) -> String:
 	var context: HashingContext = HashingContext.new()
 	context.start(HashingContext.HASH_SHA256)
-	context.update(bytes)
+	if not bytes.is_empty():
+		context.update(bytes)
 	return context.finish().hex_encode()
 
 

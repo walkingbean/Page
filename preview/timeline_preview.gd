@@ -71,6 +71,11 @@ func start_preview(source: String, workspace: RefCounted = null) -> Error:
 	if not is_inside_tree() or _handler == null:
 		last_error = "The preview window is not attached to a Dialogic project."
 		return ERR_UNCONFIGURED
+	if workspace != null and workspace.variable_document != null:
+		var variable_problem: String = workspace.variable_document.preview_error()
+		if not variable_problem.is_empty():
+			last_error = variable_problem
+			return ERR_UNAVAILABLE
 	var validation: Dictionary = Codec.validate_content(source, workspace)
 	if not validation.get("supported", false):
 		last_error = "\n".join(validation.get("diagnostics", []))
@@ -155,6 +160,9 @@ func _begin(timeline: DialogicTimeline, generation: int, textures: Array[ImageTe
 	_advance_button.disabled = false
 	_restart_button.disabled = false
 	_status.text = "Enter / Space or click the dialogue to advance. Esc / F6 closes preview."
+	# Full clear restores the application's defaults; replace them only in this
+	# runtime instance with an independent copy of the selected content root.
+	_handler.VAR.var_storage = timeline.get_meta("preview_variables", {}).duplicate(true)
 	_handler.start_timeline(timeline)
 	preview_ready.emit()
 
@@ -166,6 +174,10 @@ func _clear_runtime() -> void:
 	if not is_instance_valid(_handler):
 		return
 	_resetting = true
+	# Native timeline cleanup yields one frame before disconnecting suspended
+	# event signals. Detach the old text nodes first so a finishing reveal cannot
+	# resume an old event after clear() has reset its timeline index to -1.
+	_discard_layout()
 	_handler.paused = false
 	_handler.Inputs.stop_timers()
 	_handler.Inputs.auto_skip.enabled = false
@@ -175,7 +187,6 @@ func _clear_runtime() -> void:
 	# DialogicTimeline.clean() waits one frame; awaiting it prevents an older
 	# cleanup coroutine from wiping the next preview's timeline.
 	await _handler.clear(DialogicGameHandler.ClearFlags.FULL_CLEAR)
-	_discard_layout()
 	_restore_resources()
 	_resetting = false
 	_reset_completed.emit()

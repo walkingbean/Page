@@ -1,0 +1,5 @@
+# Simple string variables are stored in this folder's project.godot.
+你好，{player_name}。
+{player_name}，{greeting}。
+同一个称呼再次出现：{player_name}。
+空值位于这两个括号之间（{empty_value}）。

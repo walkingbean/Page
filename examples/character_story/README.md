@@ -1,4 +1,4 @@
-# PAGE Editor 0.0.1 双角色示例
+# PAGE Editor 0.0.2 双角色示例
 
 在程序中选择 `examples/character_story` 作为 **Content folder**，然后打开其中的 `conversation.dtl` 并启动 Preview。内容根目录是同时包含 `characters`、`portraits` 和 `conversation.dtl` 的这一层，不是 `characters` 子目录。
 

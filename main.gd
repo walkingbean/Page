@@ -2,6 +2,8 @@ extends Control
 
 const Document = preload("res://application/timeline_document.gd")
 const CharacterDocumentType = preload("res://application/character_document.gd")
+const VariableDocumentType = preload("res://application/variable_document.gd")
+const VariableEditor = preload("res://ui/components/variable_editor.gd")
 const ContentWorkspaceType = preload("res://application/content_workspace.gd")
 const CharacterEditor = preload("res://ui/components/character_editor.gd")
 const Preview = preload("res://preview/timeline_preview.gd")
@@ -13,11 +15,20 @@ const Identity = preload("res://application/app_identity.gd")
 
 var document := Document.new()
 var character_document := CharacterDocumentType.new()
+var variable_document := VariableDocumentType.new()
 var workspace: RefCounted = null
 var has_document := false
 var has_character := false
 var active_mode := "timeline"
 var character_editor: Control
+var variable_editor: Control
+var create_variables_dialog: ConfirmationDialog
+var _pending_save_mode := ""
+var _variable_selected: Variant = ""
+var _variable_new_item := false
+var _variable_initial_fields: Dictionary = {}
+var _variable_form_dirty := false
+var _variable_form_error := ""
 var content_label: Label
 var preview_window: Window
 var open_dialog: FileDialog
@@ -65,6 +76,11 @@ func _ready() -> void:
 	character_tab.add_theme_stylebox_override("normal", tabs.get_node("Timeline").get_theme_stylebox("normal"))
 	character_tab.tooltip_text = "Edit native Dialogic characters"
 	character_tab.pressed.connect(func(): _request_switch_mode("character"))
+	var variable_tab: Button = tabs.get_node("Variables")
+	variable_tab.disabled = false
+	variable_tab.add_theme_stylebox_override("normal", tabs.get_node("Timeline").get_theme_stylebox("normal"))
+	variable_tab.tooltip_text = "Edit native string variable defaults"
+	variable_tab.pressed.connect(func(): _request_switch_mode("variables"))
 	_build_content_bar()
 	character_editor = CharacterEditor.new()
 	character_editor.name = "CharacterEditor"
@@ -76,6 +92,18 @@ func _ready() -> void:
 	character_editor.save_as_requested.connect(_save_as)
 	character_editor.portrait_requested.connect(_request_portrait)
 	character_editor.fields_changed.connect(_on_character_fields_changed)
+	variable_editor = VariableEditor.new()
+	variable_editor.name = "VariableEditor"
+	$MainLayout/PageContent.add_child(variable_editor)
+	variable_editor.hide()
+	variable_editor.new_requested.connect(_request_new_variable)
+	variable_editor.choose_folder_requested.connect(func(): _request_transition(_choose_workspace))
+	variable_editor.save_requested.connect(_save_variables)
+	variable_editor.apply_requested.connect(func(): _apply_variable_form())
+	variable_editor.delete_requested.connect(_delete_variable)
+	variable_editor.selection_requested.connect(_request_variable_selection)
+	variable_editor.fields_changed.connect(_on_variable_fields_changed)
+	_show_variables()
 	_create_dialogs()
 	validation_timer = Timer.new()
 	validation_timer.one_shot = true
@@ -145,10 +173,17 @@ func _create_dialogs() -> void:
 	unsaved_dialog.dialog_text = "Save your changes before continuing?"
 	unsaved_dialog.ok_button_text = "Save"
 	unsaved_dialog.add_button("Discard", false, "discard")
-	unsaved_dialog.confirmed.connect(_save_document)
+	unsaved_dialog.confirmed.connect(_save_pending_document)
 	unsaved_dialog.custom_action.connect(_on_unsaved_action)
-	unsaved_dialog.canceled.connect(func(): pending_action = Callable())
+	unsaved_dialog.canceled.connect(_cancel_pending_action)
 	add_child(unsaved_dialog)
+	create_variables_dialog = ConfirmationDialog.new()
+	create_variables_dialog.name = "CreateVariableConfig"
+	create_variables_dialog.title = "Create Variable Configuration"
+	create_variables_dialog.ok_button_text = "Create and Save"
+	create_variables_dialog.confirmed.connect(func(): _save_variables(true))
+	create_variables_dialog.canceled.connect(_cancel_pending_action)
+	add_child(create_variables_dialog)
 	error_dialog = AcceptDialog.new()
 	error_dialog.title = Identity.project_name()
 	add_child(error_dialog)
@@ -167,12 +202,16 @@ func _request_transition(action: Callable) -> void:
 	_sync_document_from_editor()
 	if _active_dirty():
 		pending_action = action
+		_pending_save_mode = active_mode
+		unsaved_dialog.dialog_text = "Save your changes before continuing?"
 		unsaved_dialog.popup_centered(Vector2i(420, 150))
 	else:
 		action.call()
 
 
 func _active_dirty() -> bool:
+	if active_mode == "variables":
+		return _variables_dirty()
 	if active_mode == "character":
 		return has_character and (character_document.dirty or _character_identifier_dirty or not _character_form_error.is_empty())
 	return has_document and document.dirty
@@ -190,6 +229,9 @@ func _activate_mode(mode: String) -> void:
 	active_mode = mode
 	editor.visible = mode == "timeline"
 	character_editor.visible = mode == "character"
+	variable_editor.visible = mode == "variables"
+	tabs.get_node("Variables").flat = mode != "variables"
+	tabs.get_node("Variables").modulate = Color.WHITE if mode == "variables" else Color(0.75, 0.75, 0.75)
 	tabs.get_node("Timeline").flat = mode != "timeline"
 	tabs.get_node("Character").flat = mode != "character"
 	tabs.get_node("Timeline").modulate = Color.WHITE if mode == "timeline" else Color(0.75, 0.75, 0.75)
@@ -201,12 +243,16 @@ func _activate_mode(mode: String) -> void:
 func _focus_active_editor() -> void:
 	if active_mode == "timeline":
 		editor.focus_editor()
+	elif active_mode == "variables":
+		variable_editor.focus_editor()
 	elif has_character:
 		character_editor.display_name_field.grab_focus()
 
 
 func _request_new() -> void:
-	if active_mode == "character":
+	if active_mode == "variables":
+		_request_new_variable()
+	elif active_mode == "character":
 		_request_new_character()
 	else:
 		_request_transition(_new_document)
@@ -241,7 +287,7 @@ func _new_character() -> void:
 
 
 func _request_open() -> void:
-	_request_transition(_show_open_dialog)
+	_request_transition(_choose_workspace if active_mode == "variables" else _show_open_dialog)
 
 
 func _show_open_dialog() -> void:
@@ -289,6 +335,9 @@ func _open_character(path: String) -> void:
 
 
 func _save_document() -> void:
+	if active_mode == "variables":
+		_save_variables()
+		return
 	_sync_document_from_editor()
 	if not _can_save_character_form():
 		return
@@ -302,6 +351,9 @@ func _save_document() -> void:
 
 
 func _save_as() -> void:
+	if active_mode == "variables":
+		_save_variables()
+		return
 	_sync_document_from_editor()
 	if not _can_save_character_form():
 		return
@@ -370,10 +422,7 @@ func _save_selected(path: String) -> void:
 		_character_fields = character_editor.get_fields().duplicate(true)
 	_refresh_workspace(false)
 	_refresh_chrome("Saved: " + active.path)
-	if pending_action.is_valid():
-		var action := pending_action
-		pending_action = Callable()
-		action.call()
+	_finish_pending_action()
 
 
 func _on_unsaved_action(action: StringName) -> void:
@@ -386,12 +435,16 @@ func _on_unsaved_action(action: StringName) -> void:
 	pending_action = Callable()
 	# Inactive sessions stay available after a tab switch. Discard must really
 	# restore the saved session, not leave hidden dirty content behind.
-	if not _discard_active_changes():
+	var discard_variables: bool = _pending_save_mode == "variables"
+	_pending_save_mode = ""
+	if not (_discard_variable_changes() if discard_variables else _discard_active_changes()):
 		return
 	next.call()
 
 
 func _discard_active_changes() -> bool:
+	if active_mode == "variables":
+		return _discard_variable_changes()
 	var active: RefCounted = character_document if active_mode == "character" else document
 	if active.path.is_empty():
 		active.new_document()
@@ -410,7 +463,9 @@ func _discard_active_changes() -> bool:
 
 func _sync_document_from_editor() -> void:
 	# Save and transitions consume controls directly, before deferred change signals.
-	if active_mode == "character":
+	if active_mode == "variables":
+		_on_variable_fields_changed()
+	elif active_mode == "character":
 		if has_character and not character_document.read_only:
 			_on_character_fields_changed(character_editor.get_fields())
 	elif has_document and not document.read_only:
@@ -476,6 +531,14 @@ func _show_character() -> void:
 func _refresh_chrome(message: String = "", validation: Dictionary = {}) -> void:
 	if is_instance_valid(validation_timer):
 		validation_timer.stop()
+	if active_mode == "variables":
+		if message.is_empty():
+			message = _variable_status()
+		variable_editor.set_document_state("Variables" + (" *" if _variables_dirty() else ""), variable_document.file_path, message, variable_document.read_only)
+		sidebar.set_document("", "", false, "variables")
+		tabs.get_node("PlayTimeline").disabled = not has_document
+		get_window().title = Identity.window_title("Variables" + (" *" if _variables_dirty() else ""))
+		return
 	if active_mode == "character":
 		tabs.get_node("PlayTimeline").disabled = true
 		if has_character:
@@ -534,9 +597,18 @@ func _open_workspace(path: String) -> void:
 		pending_workspace_action = Callable()
 		_show_error(candidate.last_error)
 		return
+	var candidate_variables := VariableDocumentType.new()
+	result = candidate_variables.open_root(candidate.root_path)
+	if result != OK:
+		pending_workspace_action = Callable()
+		_show_error(candidate_variables.last_error)
+		return
+	candidate.variable_document = candidate_variables
 	_stop_preview()
 	var changed: bool = workspace != null and workspace.root_path != candidate.root_path
 	workspace = candidate
+	variable_document = candidate_variables
+	_show_variables()
 	document.workspace = workspace
 	character_document.workspace = workspace
 	# A character form belongs to its original content root; do not reinterpret
@@ -557,12 +629,14 @@ func _open_workspace(path: String) -> void:
 		action.call()
 
 
-func _refresh_workspace(show_errors: bool = true) -> void:
+func _refresh_workspace(show_errors: bool = true, reload_variables: bool = true) -> void:
 	_sync_document_from_editor()
 	if workspace != null:
 		var result: Error = workspace.refresh()
 		if result != OK and show_errors:
 			_show_error(workspace.last_error)
+		if reload_variables:
+			_refresh_variables(show_errors)
 	_refresh_workspace_chrome()
 	_revalidate_timeline_context()
 	_refresh_chrome()
@@ -622,9 +696,26 @@ func _update_portrait_preview(logical: String) -> void:
 
 func _start_preview() -> void:
 	_sync_document_from_editor()
-	if active_mode != "timeline" or not has_document:
+	if active_mode == "character" or not has_document:
 		return
-	_refresh_workspace(false)
+	if _variables_dirty():
+		_pending_save_mode = "variables"
+		pending_action = _begin_timeline_preview
+		unsaved_dialog.dialog_text = "Save variable defaults before preview? The timeline buffer will not be saved automatically."
+		unsaved_dialog.popup_centered(Vector2i(480, 170))
+		return
+	_begin_timeline_preview()
+
+
+func _begin_timeline_preview() -> void:
+	if workspace != null:
+		var variable_error: String = variable_document.preview_error()
+		if not variable_error.is_empty():
+			_show_error(variable_error + " Use Refresh to reload saved defaults; unsaved changes are preserved.")
+			return
+	if active_mode != "timeline":
+		_activate_mode("timeline")
+	_refresh_workspace(false, false)
 	var validation: Dictionary = document.validate_content(document.content)
 	_refresh_chrome("", validation)
 	if document.read_only or not bool(validation.get("supported", false)):
@@ -639,6 +730,7 @@ func _start_preview() -> void:
 		return
 	editor.set_preview_state(true)
 	character_editor.set_enabled(false)
+	variable_editor.set_enabled(false)
 
 
 func _stop_preview() -> void:
@@ -649,6 +741,7 @@ func _stop_preview() -> void:
 func _on_preview_closed() -> void:
 	editor.set_preview_state(false)
 	character_editor.set_enabled(true)
+	variable_editor.set_enabled(true)
 	_focus_active_editor()
 
 
@@ -657,6 +750,8 @@ func _show_error(message: String) -> void:
 	error_dialog.popup_centered(Vector2i(540, 160))
 	if active_mode == "timeline":
 		editor.set_status(message)
+	elif active_mode == "variables":
+		variable_editor.set_document_state("Variables" + (" *" if _variables_dirty() else ""), variable_document.file_path, message, variable_document.read_only)
 	elif has_character:
 		character_editor.set_document_state(_character_title(), character_document.read_only, message)
 
@@ -665,7 +760,7 @@ func _shortcut_input(event: InputEvent) -> void:
 	if not event is InputEventKey or not event.pressed or event.echo:
 		return
 	# No main-window shortcut may consume input belonging to a modal workflow.
-	for dialog: Window in [open_dialog, save_dialog, workspace_dialog, portrait_dialog, unsaved_dialog, error_dialog, preview_window]:
+	for dialog: Window in [open_dialog, save_dialog, workspace_dialog, portrait_dialog, unsaved_dialog, create_variables_dialog, error_dialog, preview_window]:
 		if is_instance_valid(dialog) and dialog.visible:
 			return
 	var handled := true
@@ -698,3 +793,194 @@ func _shortcut_input(event: InputEvent) -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST and is_node_ready():
 		_request_transition(func(): get_tree().quit())
+
+
+func _variables_dirty() -> bool:
+	return not variable_document.root_path.is_empty() and (variable_document.dirty or _variable_form_dirty)
+
+
+func _variable_status() -> String:
+	if workspace == null:
+		return "Choose a content folder to edit string variables. Narration files can still be edited without one."
+	if not _variable_form_error.is_empty():
+		return "Correct the variable fields: " + _variable_form_error
+	if variable_document.read_only:
+		return "Read-only: " + " ".join(variable_document.diagnostics)
+	if not variable_document.override_warning.is_empty():
+		return variable_document.override_warning
+	var message := "Native string defaults · " + ("Unsaved" if _variables_dirty() else "Ready")
+	if not FileAccess.file_exists(variable_document.file_path):
+		message += " · First Save creates project.godot in the selected content folder."
+	return message
+
+
+func _show_variables(selected_name: Variant = "") -> void:
+	_variable_selected = selected_name
+	if not variable_document.values.has(_variable_selected):
+		_variable_selected = ""
+	_variable_new_item = false
+	_variable_form_dirty = false
+	_variable_form_error = ""
+	variable_editor.show_document(variable_document.values, _variable_selected, not variable_document.root_path.is_empty(), variable_document.read_only)
+	_variable_initial_fields = variable_editor.get_fields().duplicate(true)
+
+
+func _request_new_variable() -> void:
+	if workspace == null:
+		_with_workspace(_new_variable)
+		return
+	if active_mode != "variables":
+		_request_transition(_new_variable)
+		return
+	if _apply_variable_form():
+		_new_variable()
+
+
+func _new_variable() -> void:
+	if workspace == null or variable_document.read_only:
+		return
+	_activate_mode("variables")
+	_variable_selected = ""
+	_variable_new_item = true
+	variable_editor.show_selection("", true)
+	_variable_initial_fields = variable_editor.get_fields().duplicate(true)
+	_variable_form_dirty = true
+	_variable_form_error = "Enter a name for the new string variable."
+	_refresh_chrome()
+	variable_editor.name_field.grab_focus()
+
+
+func _request_variable_selection(variable_name: Variant) -> void:
+	if variable_name == _variable_selected and not _variable_new_item:
+		return
+	if not _apply_variable_form():
+		variable_editor.select_list_item(_variable_selected)
+		return
+	_show_variables(variable_name)
+	_refresh_chrome()
+
+
+func _on_variable_fields_changed() -> void:
+	if not is_instance_valid(variable_editor) or variable_document.read_only or variable_document.root_path.is_empty():
+		return
+	if not _variable_new_item and (not _variable_selected is String or not variable_document.is_editable(_variable_selected)):
+		return
+	var fields: Dictionary = variable_editor.get_fields()
+	_variable_form_dirty = _variable_new_item or fields != _variable_initial_fields
+	_variable_form_error = _variable_fields_error(fields) if _variable_form_dirty else ""
+	if is_instance_valid(validation_timer):
+		validation_timer.start()
+
+
+func _variable_fields_error(fields: Dictionary) -> String:
+	var variable_name: String = fields.get("name", "")
+	if not VariableDocumentType.valid_identifier(variable_name):
+		return "Use a nonempty ASCII identifier: letters, digits and underscores; do not start with a digit."
+	if variable_document.values.has(variable_name) and (_variable_new_item or variable_name != _variable_selected):
+		return "A variable or read-only item with this exact name already exists. Names are case-sensitive."
+	return ""
+
+
+func _apply_variable_form() -> bool:
+	_on_variable_fields_changed()
+	if not _variable_form_dirty:
+		return true
+	if not _variable_form_error.is_empty():
+		_show_error(_variable_form_error)
+		return false
+	var fields: Dictionary = variable_editor.get_fields()
+	var new_name: String = fields.get("name", "")
+	var result: Error = variable_document.update_variable("" if _variable_new_item else _variable_selected, new_name, fields.get("value", ""))
+	if result != OK:
+		_variable_form_error = variable_document.last_error
+		_show_error(_variable_form_error)
+		return false
+	_show_variables(new_name)
+	_refresh_chrome()
+	return true
+
+
+func _delete_variable() -> void:
+	if workspace == null or variable_document.read_only or not _variable_selected is String or _variable_selected.is_empty() or _variable_new_item:
+		return
+	var result: Error = variable_document.remove_variable(_variable_selected)
+	if result != OK:
+		_show_error(variable_document.last_error)
+		return
+	_show_variables()
+	_refresh_chrome("Definition removed from the unsaved list. Existing timeline references have not been changed.")
+
+
+func _save_variables(creation_confirmed: bool = false) -> void:
+	if workspace == null:
+		_cancel_pending_action()
+		_show_error("Choose a content folder before saving variable defaults.")
+		return
+	if not _apply_variable_form():
+		_cancel_pending_action()
+		return
+	if variable_document.read_only:
+		_cancel_pending_action()
+		_show_error("Variable configuration is read-only. " + " ".join(variable_document.diagnostics))
+		return
+	var result: Error = variable_document.check_current()
+	if result != OK:
+		_cancel_pending_action()
+		_show_error(variable_document.last_error)
+		return
+	if not FileAccess.file_exists(variable_document.file_path) and not creation_confirmed:
+		create_variables_dialog.dialog_text = "Save will create a native project.godot containing variable defaults in:\n" + workspace.root_path + "\nIt will not configure a game scene, plugins or autoloads."
+		create_variables_dialog.popup_centered(Vector2i(560, 210))
+		return
+	result = variable_document.save()
+	if result != OK:
+		_cancel_pending_action()
+		_show_error(variable_document.last_error)
+		return
+	_show_variables(_variable_selected)
+	_revalidate_timeline_context()
+	_refresh_chrome("Saved: " + variable_document.file_path)
+	_finish_pending_action()
+
+
+func _discard_variable_changes() -> bool:
+	var result: Error = variable_document.discard_changes()
+	if result != OK:
+		_show_error("Could not reload saved variable defaults. Your draft is still available. " + variable_document.last_error)
+		return false
+	_show_variables(_variable_selected)
+	_revalidate_timeline_context()
+	_refresh_chrome()
+	return true
+
+
+func _refresh_variables(show_errors: bool) -> void:
+	var result: Error
+	if _variables_dirty():
+		result = variable_document.check_current()
+	else:
+		result = variable_document.refresh()
+		if result == OK:
+			_show_variables(_variable_selected)
+	if result != OK and show_errors:
+		_show_error(variable_document.last_error)
+
+
+func _save_pending_document() -> void:
+	if _pending_save_mode == "variables":
+		_save_variables()
+	else:
+		_save_document()
+
+
+func _cancel_pending_action() -> void:
+	pending_action = Callable()
+	_pending_save_mode = ""
+
+
+func _finish_pending_action() -> void:
+	_pending_save_mode = ""
+	if pending_action.is_valid():
+		var action := pending_action
+		pending_action = Callable()
+		action.call()

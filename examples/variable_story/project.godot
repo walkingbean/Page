@@ -1,0 +1,11 @@
+; Native Dialogic variable defaults for this content folder.
+; This example is content, not a complete runnable game project.
+config_version=5
+
+[dialogic]
+
+variables={
+"empty_value": "",
+"greeting": "欢迎回来",
+"player_name": "小明"
+}

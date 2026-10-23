@@ -1,7 +1,8 @@
-# PAGE Editor 0.0.1 示例
+# PAGE Editor 0.0.2 示例
 
 | 示例 | 打开方式 | 内容 |
 |---|---|---|
+| `variable_story/` | 先选该目录为 Content Folder，再打开 `conversation.dtl` | 原生字符串变量初值、中文与空值、台词中的简单引用 |
 | `narration.dtl` | 在 Timeline 页直接打开 | 中文旁白、冒号转义和续行 |
 | `comments.dtl` | 在 Timeline 页直接打开 | 独立注释、文本续行和转义井号 |
 | `character_story/` | 先选该目录为 Content Folder，再打开 `conversation.dtl` | 两个原生角色、默认 PNG 立绘、左右入场、对白和逐一离场 |

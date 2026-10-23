@@ -10,6 +10,7 @@ const MAX_SCAN_ENTRIES: int = 20000
 const SKIP_DIRECTORIES: Array[String] = [".godot", ".git", ".svn", "addons"]
 
 var root_path: String = ""
+var variable_document: RefCounted = null
 var characters: Dictionary = {}
 var timelines: Array[String] = []
 var diagnostics: Array[String] = []
