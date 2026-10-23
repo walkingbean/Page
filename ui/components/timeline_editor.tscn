@@ -1,0 +1,211 @@
+[gd_scene format=3 uid="uid://dyadxvkw31546"]
+
+[ext_resource type="Script" uid="uid://31jn2isid4pm" path="res://ui/components/timeline_editor.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://ui/components/event_palette.tscn" id="2_palette"]
+[ext_resource type="Texture2D" uid="uid://ki3ajnvpacct" path="res://asset/dialogic_ui/icons/fold-right.svg" id="3_arrow"]
+[ext_resource type="Texture2D" uid="uid://c4w6h6xxegvag" path="res://asset/dialogic_ui/icons/utility.svg" id="4_utility"]
+[ext_resource type="Texture2D" path="res://asset/dialogic_ui/icons/info.svg" id="5_info"]
+[ext_resource type="Texture2D" path="res://asset/dialogic_ui/icons/add-timeline.svg" id="6_add_timeline"]
+
+[sub_resource type="StyleBoxFlat" id="HeaderStyle"]
+bg_color = Color(0.109804, 0.109804, 0.117647, 1)
+border_width_bottom = 1
+border_color = Color(0.0705882, 0.0705882, 0.0784314, 1)
+
+[sub_resource type="StyleBoxFlat" id="TextEditorStyle"]
+content_margin_left = 10.0
+content_margin_top = 5.0
+content_margin_right = 10.0
+content_margin_bottom = 5.0
+bg_color = Color(0.203922, 0.203922, 0.215686, 1)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+
+[sub_resource type="StyleBoxFlat" id="TimelineStyle"]
+bg_color = Color(0.105882, 0.105882, 0.113725, 1)
+
+[sub_resource type="StyleBoxFlat" id="NoTimelineStyle"]
+bg_color = Color(0.0705882, 0.0705882, 0.0745098, 1)
+
+[sub_resource type="StyleBoxFlat" id="CreateButtonNormal"]
+content_margin_left = 10.0
+content_margin_top = 6.0
+content_margin_right = 10.0
+content_margin_bottom = 6.0
+bg_color = Color(0.337255, 0.337255, 0.34902, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="CreateButtonHover"]
+content_margin_left = 10.0
+content_margin_top = 6.0
+content_margin_right = 10.0
+content_margin_bottom = 6.0
+bg_color = Color(0.407843, 0.407843, 0.423529, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="CreateButtonPressed"]
+content_margin_left = 10.0
+content_margin_top = 6.0
+content_margin_right = 10.0
+content_margin_bottom = 6.0
+bg_color = Color(0.254902, 0.254902, 0.266667, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[node name="TimelineEditor" type="Control" unique_id=1130241621]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+script = ExtResource("1_script")
+
+[node name="Header" type="PanelContainer" parent="." unique_id=1486469696]
+visible = false
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 46.0
+grow_horizontal = 2
+custom_minimum_size = Vector2(0, 46)
+theme_override_styles/panel = SubResource("HeaderStyle")
+
+[node name="HeaderMargin" type="MarginContainer" parent="Header" unique_id=378939185]
+layout_mode = 2
+theme_override_constants/margin_left = 13
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 13
+theme_override_constants/margin_bottom = 5
+
+[node name="HeaderRow" type="HBoxContainer" parent="Header/HeaderMargin" unique_id=753518007]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="TimelineName" type="Label" parent="Header/HeaderMargin/HeaderRow" unique_id=135712230]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.843137, 0.772549, 0.552941, 1)
+theme_override_font_sizes/font_size = 16
+text = "1timeline"
+vertical_alignment = 1
+
+[node name="Info" type="TextureRect" parent="Header/HeaderMargin/HeaderRow" unique_id=1158294506]
+custom_minimum_size = Vector2(18, 18)
+layout_mode = 2
+tooltip_text = "This unique identifier is based on the file name. You can change it in the Reference Manager.
+This is what you should use in a jump event to reference this timeline.
+
+You can also use this name in Dialogic.start()."
+texture = ExtResource("5_info")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Spacer" type="Control" parent="Header/HeaderMargin/HeaderRow" unique_id=397378390]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="TextEditor" type="Button" parent="Header/HeaderMargin/HeaderRow" unique_id=895800224]
+custom_minimum_size = Vector2(129, 34)
+layout_mode = 2
+tooltip_text = "Text Editor (visual only)"
+theme_override_styles/normal = SubResource("TextEditorStyle")
+text = "Text Editor"
+icon = ExtResource("3_arrow")
+
+[node name="Utility" type="Button" parent="Header/HeaderMargin/HeaderRow" unique_id=483711000]
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+tooltip_text = "Timeline utilities (visual only)"
+theme_override_styles/normal = SubResource("TextEditorStyle")
+icon = ExtResource("4_utility")
+
+[node name="Workspace" type="HBoxContainer" parent="." unique_id=258219866]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = 46.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 0
+
+[node name="TimelinePanel" type="PanelContainer" parent="Workspace" unique_id=1532736080]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_styles/panel = SubResource("TimelineStyle")
+
+[node name="TimelineScroll" type="ScrollContainer" parent="Workspace/TimelinePanel" unique_id=348293768]
+layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="TimelineMargin" type="MarginContainer" parent="Workspace/TimelinePanel/TimelineScroll" unique_id=1614752250]
+custom_minimum_size = Vector2(480, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 48
+
+[node name="EventList" type="VBoxContainer" parent="Workspace/TimelinePanel/TimelineScroll/TimelineMargin" unique_id=1896586546]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 5
+
+[node name="EventPalette" parent="Workspace" unique_id=438456580 instance=ExtResource("2_palette")]
+unique_name_in_owner = true
+
+[node name="NoTimelineScreen" type="PanelContainer" parent="." unique_id=204312643]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("NoTimelineStyle")
+
+[node name="CenterContainer" type="CenterContainer" parent="NoTimelineScreen" unique_id=1698409400]
+layout_mode = 2
+
+[node name="EmptyContent" type="VBoxContainer" parent="NoTimelineScreen/CenterContainer" unique_id=924805915]
+custom_minimum_size = Vector2(250, 0)
+layout_mode = 2
+theme_override_constants/separation = 9
+
+[node name="Message" type="Label" parent="NoTimelineScreen/CenterContainer/EmptyContent" unique_id=1176427325]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.74, 0.74, 0.76, 1)
+theme_override_font_sizes/font_size = 16
+text = "No timeline opened.
+Create a timeline or
+double-click one in the
+file system dock."
+horizontal_alignment = 1
+
+[node name="CreateTimelineButton" type="Button" parent="NoTimelineScreen/CenterContainer/EmptyContent" unique_id=1761424501]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 4
+mouse_default_cursor_shape = 2
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("CreateButtonNormal")
+theme_override_styles/hover = SubResource("CreateButtonHover")
+theme_override_styles/pressed = SubResource("CreateButtonPressed")
+text = "Create New Timeline"
+icon = ExtResource("6_add_timeline")

@@ -1,0 +1,11 @@
+# 双角色示例：默认 PNG 立绘、颜色、旁白、入场与离场。
+join jane left
+join antonio right
+jane: 欢迎！这是一个可以独立预览的角色对话示例。
+antonio: 我们的名字、颜色和默认立绘都来自原生 .dch 文件。
+两个角色站在舞台的左右两侧。
+jane: 我先离开，稍后再见！
+leave jane
+antonio: 她已经离场，现在只剩下我。
+leave antonio
+对话结束。

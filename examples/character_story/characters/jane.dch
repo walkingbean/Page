@@ -1,0 +1,25 @@
+{
+"@path": "res://addons/dialogic/Resources/character.gd",
+"@subpath": NodePath(""),
+&"_translation_id": "",
+&"color": Color(0.9490196, 0.654902, 0.21176471, 1),
+&"custom_info": {},
+&"default_portrait": "default",
+&"description": "",
+&"display_name": "简",
+&"mirror": false,
+&"nicknames": [],
+&"offset": Vector2(0, 0),
+&"portraits": {
+"default": {
+"export_overrides": {
+"image": "\"res://portraits/jane.png\""
+},
+"mirror": false,
+"offset": Vector2(0, 0),
+"scale": 1,
+"scene": ""
+}
+},
+&"scale": 1.0
+}

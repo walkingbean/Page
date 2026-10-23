@@ -1,0 +1,129 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://ui/components/choice_event.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://asset/dialogic_ui/choice.svg" id="2_choice"]
+[ext_resource type="Texture2D" path="res://asset/dialogic_ui/icons/fold-right.svg" id="3_fold"]
+[ext_resource type="Texture2D" path="res://asset/dialogic_ui/icons/tree-expanded.svg" id="4_tree"]
+[ext_resource type="StyleBox" path="res://asset/dialogic_ui/theme/event_normal.tres" id="5_event"]
+[ext_resource type="StyleBox" path="res://asset/dialogic_ui/theme/event_settings.tres" id="6_settings"]
+
+[sub_resource type="StyleBoxFlat" id="ChoiceIconStyle"]
+bg_color = Color(0.909804, 0.407843, 0.886275, 1)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+
+[node name="ChoiceEvent" type="MarginContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 1
+focus_mode = 1
+script = ExtResource("1_script")
+
+[node name="EventPanel" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 1
+theme_override_styles/panel = ExtResource("5_event")
+
+[node name="EventLayout" type="VBoxContainer" parent="EventPanel"]
+layout_mode = 2
+theme_override_constants/separation = 3
+
+[node name="Header" type="HBoxContainer" parent="EventPanel/EventLayout"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 32)
+layout_mode = 2
+mouse_filter = 1
+theme_override_constants/separation = 5
+
+[node name="IconPanel" type="PanelContainer" parent="EventPanel/EventLayout/Header"]
+custom_minimum_size = Vector2(30, 30)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("ChoiceIconStyle")
+
+[node name="IconMargin" type="MarginContainer" parent="EventPanel/EventLayout/Header/IconPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 6
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 6
+
+[node name="Icon" type="TextureRect" parent="EventPanel/EventLayout/Header/IconPanel/IconMargin"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("2_choice")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="ChoiceText" type="LineEdit" parent="EventPanel/EventLayout/Header"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(170, 30)
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "Choice text"
+caret_blink = true
+
+[node name="SettingsToggle" type="Button" parent="EventPanel/EventLayout/Header"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(29, 29)
+layout_mode = 2
+tooltip_text = "Show Settings"
+icon = ExtResource("3_fold")
+flat = true
+
+[node name="ChildrenToggle" type="Button" parent="EventPanel/EventLayout/Header"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(29, 29)
+layout_mode = 2
+tooltip_text = "Collapse Contained Events"
+icon = ExtResource("4_tree")
+flat = true
+
+[node name="SettingsBody" type="PanelContainer" parent="EventPanel/EventLayout"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_styles/panel = ExtResource("6_settings")
+
+[node name="Fields" type="VBoxContainer" parent="EventPanel/EventLayout/SettingsBody"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="ConditionRow" type="HBoxContainer" parent="EventPanel/EventLayout/SettingsBody/Fields"]
+layout_mode = 2
+
+[node name="ConditionLabel" type="Label" parent="EventPanel/EventLayout/SettingsBody/Fields/ConditionRow"]
+custom_minimum_size = Vector2(76, 0)
+layout_mode = 2
+text = "Condition:"
+vertical_alignment = 1
+
+[node name="Condition" type="LineEdit" parent="EventPanel/EventLayout/SettingsBody/Fields/ConditionRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "Optional condition"
+caret_blink = true
+
+[node name="ElseRow" type="HBoxContainer" parent="EventPanel/EventLayout/SettingsBody/Fields"]
+layout_mode = 2
+
+[node name="ElseLabel" type="Label" parent="EventPanel/EventLayout/SettingsBody/Fields/ElseRow"]
+custom_minimum_size = Vector2(76, 0)
+layout_mode = 2
+text = "Else:"
+vertical_alignment = 1
+
+[node name="ElseOption" type="OptionButton" parent="EventPanel/EventLayout/SettingsBody/Fields/ElseRow"]
+custom_minimum_size = Vector2(150, 30)
+layout_mode = 2
+item_count = 3
+popup/item_0/text = "Default"
+popup/item_0/id = 0
+popup/item_1/text = "Hide"
+popup/item_1/id = 1
+popup/item_2/text = "Disable"
+popup/item_2/id = 2

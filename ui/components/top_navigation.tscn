@@ -1,0 +1,115 @@
+[gd_scene format=3 uid="uid://chn6g4i8hblm6"]
+
+[ext_resource type="Texture2D" path="res://asset/branding/page-icon.svg" id="1_home"]
+[ext_resource type="Texture2D" uid="uid://suob2fd6f763" path="res://asset/dialogic_ui/timeline.svg" id="2_timeline"]
+[ext_resource type="Texture2D" uid="uid://c0mnvco7754d2" path="res://asset/dialogic_ui/character.svg" id="3_character"]
+[ext_resource type="Texture2D" uid="uid://cbdf4f07h0tkb" path="res://asset/dialogic_ui/glossary.svg" id="4_glossary"]
+[ext_resource type="Texture2D" uid="uid://clrdh4mssa7vd" path="res://asset/dialogic_ui/styles.svg" id="5_layouts"]
+[ext_resource type="Texture2D" uid="uid://dqy6rxd11a71k" path="res://asset/dialogic_ui/variable.svg" id="6_variables"]
+[ext_resource type="Texture2D" uid="uid://d3ssns283vcw2" path="res://asset/dialogic_ui/settings.svg" id="7_settings"]
+[ext_resource type="Texture2D" uid="uid://d04qljpoyjive" path="res://asset/dialogic_ui/icons/play.svg" id="8_play"]
+
+[sub_resource type="StyleBoxFlat" id="BarStyle"]
+bg_color = Color(0.145098, 0.145098, 0.152941, 1)
+border_width_bottom = 1
+border_color = Color(0.0823529, 0.0823529, 0.0901961, 1)
+
+[sub_resource type="StyleBoxFlat" id="SelectedTab"]
+content_margin_left = 9.0
+content_margin_top = 5.0
+content_margin_right = 9.0
+content_margin_bottom = 5.0
+bg_color = Color(0.0862745, 0.0862745, 0.0941176, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+
+[node name="TopNavigation" type="PanelContainer" unique_id=1607236342]
+custom_minimum_size = Vector2(0, 47)
+theme_override_styles/panel = SubResource("BarStyle")
+
+[node name="Margin" type="MarginContainer" parent="." unique_id=657396900]
+layout_mode = 2
+theme_override_constants/margin_left = 5
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 7
+theme_override_constants/margin_bottom = 4
+
+[node name="Tabs" type="HBoxContainer" parent="Margin" unique_id=2098696707]
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="Home" type="Button" parent="Margin/Tabs" unique_id=1602288330]
+custom_minimum_size = Vector2(36, 35)
+layout_mode = 2
+disabled = true
+tooltip_text = "This page is planned for a future version."
+theme_override_constants/icon_max_width = 16
+icon = ExtResource("1_home")
+flat = true
+
+[node name="Timeline" type="Button" parent="Margin/Tabs" unique_id=1024246381]
+custom_minimum_size = Vector2(94, 35)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.82, 0.82, 0.86, 1)
+theme_override_colors/icon_normal_color = Color(0.55, 0.76, 1, 1)
+theme_override_styles/normal = SubResource("SelectedTab")
+text = "Timeline"
+icon = ExtResource("2_timeline")
+
+[node name="Character" type="Button" parent="Margin/Tabs" unique_id=2054293856]
+custom_minimum_size = Vector2(100, 35)
+layout_mode = 2
+disabled = true
+tooltip_text = "This page is planned for a future version."
+text = "Character"
+icon = ExtResource("3_character")
+flat = true
+
+[node name="Glossary" type="Button" parent="Margin/Tabs" unique_id=1383754180]
+custom_minimum_size = Vector2(86, 35)
+layout_mode = 2
+disabled = true
+tooltip_text = "This page is planned for a future version."
+text = "Glossary"
+icon = ExtResource("4_glossary")
+flat = true
+
+[node name="Layouts" type="Button" parent="Margin/Tabs" unique_id=1432432216]
+custom_minimum_size = Vector2(80, 35)
+layout_mode = 2
+disabled = true
+tooltip_text = "This page is planned for a future version."
+text = "Style"
+icon = ExtResource("5_layouts")
+flat = true
+
+[node name="Variables" type="Button" parent="Margin/Tabs" unique_id=1784365912]
+custom_minimum_size = Vector2(91, 35)
+layout_mode = 2
+disabled = true
+tooltip_text = "This page is planned for a future version."
+text = "Variables"
+icon = ExtResource("6_variables")
+flat = true
+
+[node name="Settings" type="Button" parent="Margin/Tabs" unique_id=751435942]
+custom_minimum_size = Vector2(86, 35)
+layout_mode = 2
+disabled = true
+tooltip_text = "This page is planned for a future version."
+text = "Settings"
+icon = ExtResource("7_settings")
+flat = true
+
+[node name="Spacer" type="Control" parent="Margin/Tabs" unique_id=232857887]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="PlayTimeline" type="Button" parent="Margin/Tabs" unique_id=1534422132]
+custom_minimum_size = Vector2(120, 35)
+layout_mode = 2
+tooltip_text = "Play the current timeline"
+text = "Play Timeline"
+icon = ExtResource("8_play")
+flat = true

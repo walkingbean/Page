@@ -1,0 +1,129 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="Script" path="res://ui/components/resource_sidebar.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://asset/branding/page-logo.svg" id="2_logo"]
+[ext_resource type="Texture2D" path="res://asset/dialogic_ui/icons/add-timeline.svg" id="3_add_timeline"]
+[ext_resource type="Texture2D" path="res://asset/dialogic_ui/icons/add-character.svg" id="4_add_character"]
+[ext_resource type="Texture2D" path="res://asset/dialogic_ui/icons/unlinked.svg" id="5_unlinked"]
+[ext_resource type="Texture2D" path="res://asset/dialogic_ui/icons/search.svg" id="6_search"]
+[ext_resource type="Texture2D" path="res://asset/dialogic_ui/icons/more.svg" id="7_more"]
+[ext_resource type="Texture2D" path="res://asset/dialogic_ui/icons/fold-right.svg" id="8_collapse"]
+
+[sub_resource type="StyleBoxFlat" id="SidebarStyle"]
+bg_color = Color(0.12549, 0.12549, 0.133333, 1)
+border_width_right = 1
+border_color = Color(0.188235, 0.188235, 0.203922, 1)
+
+[node name="ResourceSidebar" type="PanelContainer"]
+custom_minimum_size = Vector2(208, 0)
+layout_mode = 2
+size_flags_horizontal = 0
+theme_override_styles/panel = SubResource("SidebarStyle")
+script = ExtResource("1_script")
+
+[node name="Layout" type="VBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="LogoMargin" type="MarginContainer" parent="Layout"]
+custom_minimum_size = Vector2(0, 47)
+layout_mode = 2
+theme_override_constants/margin_left = 7
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 6
+
+[node name="Logo" type="TextureRect" parent="Layout/LogoMargin"]
+custom_minimum_size = Vector2(120, 30)
+layout_mode = 2
+size_flags_horizontal = 0
+mouse_filter = 2
+texture = ExtResource("2_logo")
+expand_mode = 3
+stretch_mode = 5
+
+[node name="TopDivider" type="HSeparator" parent="Layout"]
+layout_mode = 2
+
+[node name="ContentMargin" type="MarginContainer" parent="Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/margin_left = 4
+theme_override_constants/margin_top = 3
+theme_override_constants/margin_right = 4
+theme_override_constants/margin_bottom = 3
+
+[node name="Content" type="VBoxContainer" parent="Layout/ContentMargin"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="Tools" type="HBoxContainer" parent="Layout/ContentMargin/Content"]
+custom_minimum_size = Vector2(0, 29)
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="NewTimeline" type="Button" parent="Layout/ContentMargin/Content/Tools"]
+custom_minimum_size = Vector2(27, 27)
+layout_mode = 2
+tooltip_text = "New Timeline"
+icon = ExtResource("3_add_timeline")
+flat = true
+
+[node name="NewCharacter" type="Button" parent="Layout/ContentMargin/Content/Tools"]
+custom_minimum_size = Vector2(27, 27)
+layout_mode = 2
+tooltip_text = "New Character"
+icon = ExtResource("4_add_character")
+flat = true
+
+[node name="ReferenceManager" type="Button" parent="Layout/ContentMargin/Content/Tools"]
+custom_minimum_size = Vector2(27, 27)
+layout_mode = 2
+tooltip_text = "Reference Manager"
+icon = ExtResource("5_unlinked")
+flat = true
+
+[node name="Search" type="LineEdit" parent="Layout/ContentMargin/Content/Tools"]
+custom_minimum_size = Vector2(78, 28)
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "Filter Resources"
+right_icon = ExtResource("6_search")
+caret_blink = true
+
+[node name="Options" type="Button" parent="Layout/ContentMargin/Content/Tools"]
+custom_minimum_size = Vector2(27, 27)
+layout_mode = 2
+tooltip_text = "Resource List Options"
+icon = ExtResource("7_more")
+flat = true
+
+[node name="ResourceTree" type="Tree" parent="Layout/ContentMargin/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+hide_root = true
+scroll_horizontal_enabled = false
+allow_reselect = true
+
+[node name="FooterDivider" type="HSeparator" parent="Layout"]
+layout_mode = 2
+
+[node name="Footer" type="HBoxContainer" parent="Layout"]
+custom_minimum_size = Vector2(0, 33)
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="Collapse" type="Button" parent="Layout/Footer"]
+custom_minimum_size = Vector2(31, 31)
+layout_mode = 2
+tooltip_text = "Hide Sidebar"
+icon = ExtResource("8_collapse")
+flat = true
+
+[node name="Version" type="Button" parent="Layout/Footer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = ""
+alignment = 0
+flat = true

@@ -1,0 +1,51 @@
+[gd_scene format=3 uid="uid://1ftl4dby5t33"]
+
+[ext_resource type="Script" uid="uid://p87qillw6s0a" path="res://main.gd" id="1_script"]
+[ext_resource type="Theme" uid="uid://mf0tdtqvg41g" path="res://asset/dialogic_ui/theme/dialogic_theme.tres" id="2_theme"]
+[ext_resource type="PackedScene" path="res://ui/components/resource_sidebar.tscn" id="3_sidebar"]
+[ext_resource type="PackedScene" path="res://ui/components/top_navigation.tscn" id="4_navigation"]
+[ext_resource type="PackedScene" uid="uid://dyadxvkw31546" path="res://ui/components/timeline_editor.tscn" id="5_timeline"]
+
+[node name="DialogicmMainPage" type="Control" unique_id=707400471]
+custom_minimum_size = Vector2(960, 540)
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_theme")
+script = ExtResource("1_script")
+
+[node name="Background" type="ColorRect" parent="." unique_id=2117335706]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.105882, 0.105882, 0.113725, 1)
+
+[node name="MainLayout" type="HBoxContainer" parent="." unique_id=619466712]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 0
+
+[node name="ResourceSidebar" parent="MainLayout" unique_id=1768192290 instance=ExtResource("3_sidebar")]
+
+[node name="PageContent" type="VBoxContainer" parent="MainLayout" unique_id=1696412982]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 0
+
+[node name="TopNavigation" parent="MainLayout/PageContent" unique_id=1944784604 instance=ExtResource("4_navigation")]
+layout_mode = 2
+
+[node name="TimelineEditor" parent="MainLayout/PageContent" unique_id=1044893116 instance=ExtResource("5_timeline")]
+layout_mode = 2

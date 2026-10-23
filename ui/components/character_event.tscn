@@ -1,0 +1,85 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Texture2D" path="res://asset/dialogic_ui/character.svg" id="1_character"]
+[ext_resource type="Texture2D" path="res://asset/dialogic_ui/join.svg" id="2_join"]
+[ext_resource type="Texture2D" path="res://asset/dialogic_ui/icons/fold-right.svg" id="3_fold"]
+[ext_resource type="StyleBox" path="res://asset/dialogic_ui/theme/event_normal.tres" id="4_event"]
+
+[sub_resource type="StyleBoxFlat" id="CharacterIconStyle"]
+bg_color = Color(0, 0.694118, 0.372549, 1)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+
+[sub_resource type="StyleBoxFlat" id="ChipStyle"]
+content_margin_left = 7.0
+content_margin_top = 4.0
+content_margin_right = 7.0
+content_margin_bottom = 4.0
+bg_color = Color(0.145098, 0.156863, 0.176471, 1)
+border_width_bottom = 1
+border_color = Color(0, 0.694118, 0.372549, 0.8)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[node name="CharacterEvent" type="MarginContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="EventPanel" type="PanelContainer" parent="."]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = ExtResource("4_event")
+
+[node name="Header" type="HBoxContainer" parent="EventPanel"]
+custom_minimum_size = Vector2(0, 32)
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="IconPanel" type="PanelContainer" parent="EventPanel/Header"]
+custom_minimum_size = Vector2(30, 30)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("CharacterIconStyle")
+
+[node name="IconMargin" type="MarginContainer" parent="EventPanel/Header/IconPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 6
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 6
+
+[node name="Icon" type="TextureRect" parent="EventPanel/Header/IconPanel/IconMargin"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_character")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Join" type="Button" parent="EventPanel/Header"]
+custom_minimum_size = Vector2(82, 30)
+layout_mode = 2
+theme_override_styles/normal = SubResource("ChipStyle")
+icon = ExtResource("2_join")
+text = "join"
+
+[node name="Position" type="Button" parent="EventPanel/Header"]
+custom_minimum_size = Vector2(100, 30)
+layout_mode = 2
+theme_override_styles/normal = SubResource("ChipStyle")
+text = "center"
+
+[node name="Spacer" type="Control" parent="EventPanel/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="Fold" type="Button" parent="EventPanel/Header"]
+custom_minimum_size = Vector2(29, 29)
+layout_mode = 2
+tooltip_text = "Fold/Unfold Settings"
+icon = ExtResource("3_fold")
+flat = true

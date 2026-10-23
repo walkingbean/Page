@@ -1,0 +1,46 @@
+{
+  "product": "PAGE Editor",
+  "version": "0.0.1",
+  "engine": {
+    "name": "Godot",
+    "version": "4.7.1",
+    "license": "MIT",
+    "export_templates": "4.7.1.stable",
+    "website": "https://godotengine.org/"
+  },
+  "dialogic": {
+    "version": "2.0-alpha-20",
+    "license": "MIT",
+    "website": "https://dialogic.pro/"
+  },
+  "source_inputs": [
+    {
+      "name": "dialogic_editor_ui_260903.zip",
+      "bytes": 58732,
+      "sha256": "7c4c97d0d5a52a74b9adca6535031d874631f501b50e6c15567f83c640d337a9"
+    },
+    {
+      "name": "dialogic-2.0-alpha-20.zip",
+      "bytes": 6182742,
+      "sha256": "299b86cb993f0520076fc32f3cad1d6ff7c1103349c2232169843651cba66ac2"
+    },
+    {
+      "name": "godot-4.7.1-stable.tar.gz",
+      "bytes": 70319003,
+      "sha256": "eb2378d76964b25d5ecb61e16c934b59ae4f605c42cdb1a2a49eb7bf6d33dcf0"
+    },
+    {
+      "name": "dialogic2alpha20_godot4.7.1.zip",
+      "bytes": 12071324,
+      "sha256": "d3379535fdab2c0a2071315c212b5bdbc541ff988c832dcaefde1bd25aa860d3"
+    }
+  ],
+  "font": {
+    "name": "NotoSansCJKsc-Regular.otf",
+    "url": "https://raw.githubusercontent.com/notofonts/noto-cjk/main/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf",
+    "sha256": "2c76254f6fc379fddfce0a7e84fb5385bb135d3e399294f6eeb6680d0365b74b",
+    "license": "SIL Open Font License 1.1"
+  },
+  "license_directory": "third_party/",
+  "build_status_reference": "docs/RELEASE_NOTES.md"
+}

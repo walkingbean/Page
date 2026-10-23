@@ -1,0 +1,135 @@
+[gd_scene load_steps=11 format=3]
+
+[ext_resource type="PackedScene" path="res://ui/components/event_palette_button.tscn" id="1_button"]
+[ext_resource type="Texture2D" path="res://asset/dialogic_ui/character.svg" id="2_character"]
+[ext_resource type="Texture2D" path="res://asset/dialogic_ui/choice.svg" id="3_choice"]
+[ext_resource type="Texture2D" path="res://asset/dialogic_ui/audio.png" id="4_audio"]
+[ext_resource type="Texture2D" path="res://asset/dialogic_ui/background.png" id="5_background"]
+[ext_resource type="Texture2D" path="res://asset/dialogic_ui/call.png" id="6_call"]
+[ext_resource type="Script" path="res://ui/components/event_palette.gd" id="7_script"]
+
+[sub_resource type="StyleBoxFlat" id="PaletteStyle"]
+bg_color = Color(0.117647, 0.117647, 0.12549, 1)
+border_width_left = 1
+border_color = Color(0.188235, 0.188235, 0.203922, 1)
+
+[sub_resource type="StyleBoxFlat" id="HeaderLine"]
+bg_color = Color(0.27, 0.27, 0.29, 1)
+content_margin_top = 1.0
+
+[sub_resource type="StyleBoxEmpty" id="Empty"]
+
+[node name="EventPalette" type="PanelContainer"]
+custom_minimum_size = Vector2(230, 0)
+layout_mode = 2
+size_flags_horizontal = 0
+theme_override_styles/panel = SubResource("PaletteStyle")
+script = ExtResource("7_script")
+
+[node name="Scroll" type="ScrollContainer" parent="."]
+layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="Margin" type="MarginContainer" parent="Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 12
+
+[node name="Sections" type="VBoxContainer" parent="Scroll/Margin"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 7
+
+[node name="MainHeader" type="HBoxContainer" parent="Scroll/Margin/Sections"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Scroll/Margin/Sections/MainHeader"]
+layout_mode = 2
+text = "Main"
+
+[node name="Line" type="HSeparator" parent="Scroll/Margin/Sections/MainHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/separator = SubResource("HeaderLine")
+
+[node name="Character" parent="Scroll/Margin/Sections" instance=ExtResource("1_button")]
+tooltip_text = "Character"
+icon = ExtResource("2_character")
+text = "Character"
+accent_color = Color(0, 0.694118, 0.372549, 1)
+
+[node name="FlowHeader" type="HBoxContainer" parent="Scroll/Margin/Sections"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Scroll/Margin/Sections/FlowHeader"]
+layout_mode = 2
+text = "Flow"
+
+[node name="Line" type="HSeparator" parent="Scroll/Margin/Sections/FlowHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/separator = SubResource("HeaderLine")
+
+[node name="Choice" parent="Scroll/Margin/Sections" instance=ExtResource("1_button")]
+unique_name_in_owner = true
+tooltip_text = "Choice"
+icon = ExtResource("3_choice")
+text = "Choice"
+accent_color = Color(0.909804, 0.407843, 0.886275, 1)
+
+[node name="AudioHeader" type="HBoxContainer" parent="Scroll/Margin/Sections"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Scroll/Margin/Sections/AudioHeader"]
+layout_mode = 2
+text = "Audio"
+
+[node name="Line" type="HSeparator" parent="Scroll/Margin/Sections/AudioHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/separator = SubResource("HeaderLine")
+
+[node name="Audio" parent="Scroll/Margin/Sections" instance=ExtResource("1_button")]
+tooltip_text = "Audio"
+icon = ExtResource("4_audio")
+text = "Audio"
+accent_color = Color(0.980392, 0.584314, 0.164706, 1)
+
+[node name="VisualsHeader" type="HBoxContainer" parent="Scroll/Margin/Sections"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Scroll/Margin/Sections/VisualsHeader"]
+layout_mode = 2
+text = "Visuals"
+
+[node name="Line" type="HSeparator" parent="Scroll/Margin/Sections/VisualsHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/separator = SubResource("HeaderLine")
+
+[node name="Background" parent="Scroll/Margin/Sections" instance=ExtResource("1_button")]
+tooltip_text = "Background"
+icon = ExtResource("5_background")
+text = "Background"
+accent_color = Color(0.870588, 0.360784, 0.360784, 1)
+
+[node name="LogicHeader" type="HBoxContainer" parent="Scroll/Margin/Sections"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Scroll/Margin/Sections/LogicHeader"]
+layout_mode = 2
+text = "Logic"
+
+[node name="Line" type="HSeparator" parent="Scroll/Margin/Sections/LogicHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/separator = SubResource("HeaderLine")
+
+[node name="Call" parent="Scroll/Margin/Sections" instance=ExtResource("1_button")]
+tooltip_text = "Call"
+icon = ExtResource("6_call")
+text = "Call"
+accent_color = Color(0.121569, 0.639216, 0.639216, 1)

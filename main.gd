@@ -1,0 +1,700 @@
+extends Control
+
+const Document = preload("res://application/timeline_document.gd")
+const CharacterDocumentType = preload("res://application/character_document.gd")
+const ContentWorkspaceType = preload("res://application/content_workspace.gd")
+const CharacterEditor = preload("res://ui/components/character_editor.gd")
+const Preview = preload("res://preview/timeline_preview.gd")
+const Identity = preload("res://application/app_identity.gd")
+
+@onready var editor: Control = $MainLayout/PageContent/TimelineEditor
+@onready var sidebar: Control = $MainLayout/ResourceSidebar
+@onready var tabs: HBoxContainer = $MainLayout/PageContent/TopNavigation/Margin/Tabs
+
+var document := Document.new()
+var character_document := CharacterDocumentType.new()
+var workspace: RefCounted = null
+var has_document := false
+var has_character := false
+var active_mode := "timeline"
+var character_editor: Control
+var content_label: Label
+var preview_window: Window
+var open_dialog: FileDialog
+var save_dialog: FileDialog
+var workspace_dialog: FileDialog
+var portrait_dialog: FileDialog
+var unsaved_dialog: ConfirmationDialog
+var error_dialog: AcceptDialog
+var validation_timer: Timer
+var pending_action := Callable()
+var pending_workspace_action := Callable()
+var _character_fields: Dictionary = {}
+var _character_identifier_dirty := false
+var _character_original_identifier := "character"
+var _character_form_error := ""
+
+
+func _ready() -> void:
+	# Preserve the supplied theme's primary typeface while making content names
+	# and configurable branding readable in languages covered by the bundled font.
+	var interface_font := FontVariation.new()
+	interface_font.base_font = ThemeDB.fallback_font
+	interface_font.fallbacks = [preload("res://asset/fonts/NotoSansCJKsc-Regular.otf")]
+	theme = theme.duplicate()
+	theme.default_font = interface_font
+	get_tree().auto_accept_quit = false
+	get_window().title = Identity.window_title()
+	tabs.get_node("Home").icon = Identity.app_icon_texture()
+	editor.new_requested.connect(_request_new)
+	editor.open_requested.connect(_request_open)
+	editor.save_requested.connect(_save_document)
+	editor.save_as_requested.connect(_save_as)
+	editor.preview_requested.connect(_start_preview)
+	editor.stop_requested.connect(_stop_preview)
+	editor.content_changed.connect(_on_content_changed)
+	sidebar.new_requested.connect(func(): _request_transition(_new_document))
+	sidebar.new_character_requested.connect(_request_new_character)
+	sidebar.open_requested.connect(_request_open)
+	sidebar.document_activated.connect(_focus_active_editor)
+	sidebar.resource_selected.connect(_request_resource)
+	tabs.get_node("PlayTimeline").pressed.connect(_start_preview)
+	tabs.get_node("Timeline").pressed.connect(func(): _request_switch_mode("timeline"))
+	var character_tab: Button = tabs.get_node("Character")
+	character_tab.disabled = false
+	character_tab.add_theme_stylebox_override("normal", tabs.get_node("Timeline").get_theme_stylebox("normal"))
+	character_tab.tooltip_text = "Edit native Dialogic characters"
+	character_tab.pressed.connect(func(): _request_switch_mode("character"))
+	_build_content_bar()
+	character_editor = CharacterEditor.new()
+	character_editor.name = "CharacterEditor"
+	$MainLayout/PageContent.add_child(character_editor)
+	character_editor.hide()
+	character_editor.new_requested.connect(_request_new_character)
+	character_editor.open_requested.connect(_request_open)
+	character_editor.save_requested.connect(_save_document)
+	character_editor.save_as_requested.connect(_save_as)
+	character_editor.portrait_requested.connect(_request_portrait)
+	character_editor.fields_changed.connect(_on_character_fields_changed)
+	_create_dialogs()
+	validation_timer = Timer.new()
+	validation_timer.one_shot = true
+	validation_timer.wait_time = 0.25
+	validation_timer.timeout.connect(_refresh_chrome)
+	add_child(validation_timer)
+	preview_window = Preview.new()
+	preview_window.preview_closed.connect(_on_preview_closed)
+	add_child(preview_window)
+	tabs.get_node("PlayTimeline").disabled = true
+	_refresh_workspace_chrome()
+	if not Identity.last_error().is_empty():
+		_show_error(Identity.last_error())
+	# Resolve the content root first, regardless of command-line argument order.
+	var arguments := OS.get_cmdline_user_args()
+	for index: int in range(arguments.size() - 1):
+		if arguments[index] == "--content-root":
+			_open_workspace(arguments[index + 1])
+			break
+	for argument: String in arguments:
+		if argument.to_lower().ends_with(".dtl") or argument.to_lower().ends_with(".dch"):
+			_open_selected(argument)
+			break
+
+
+func _build_content_bar() -> void:
+	var row := HBoxContainer.new()
+	row.name = "ContentBar"
+	row.add_theme_constant_override("separation", 8)
+	$MainLayout/PageContent.add_child(row)
+	$MainLayout/PageContent.move_child(row, 1)
+	var choose := Button.new()
+	choose.name = "ContentFolder"
+	choose.text = "Content Folder"
+	choose.tooltip_text = "Choose the root containing timelines, characters and portraits."
+	choose.pressed.connect(func(): _request_transition(_choose_workspace))
+	row.add_child(choose)
+	content_label = Label.new()
+	content_label.name = "ContentRoot"
+	content_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	content_label.custom_minimum_size.x = 80
+	content_label.add_theme_font_size_override("font_size", 12)
+	row.add_child(content_label)
+	var refresh := Button.new()
+	refresh.name = "Refresh"
+	refresh.text = "Refresh"
+	refresh.tooltip_text = "Rescan the content folder and validate character references."
+	refresh.pressed.connect(_refresh_workspace)
+	row.add_child(refresh)
+
+
+func _create_dialogs() -> void:
+	open_dialog = _file_dialog("Open Dialogic Content", FileDialog.FILE_MODE_OPEN_FILE)
+	open_dialog.file_selected.connect(_open_selected)
+	save_dialog = _file_dialog("Save As", FileDialog.FILE_MODE_SAVE_FILE)
+	save_dialog.file_selected.connect(_save_selected)
+	save_dialog.canceled.connect(func(): pending_action = Callable())
+	workspace_dialog = _file_dialog("Choose Content Folder", FileDialog.FILE_MODE_OPEN_DIR)
+	workspace_dialog.dir_selected.connect(_open_workspace)
+	workspace_dialog.canceled.connect(func(): pending_workspace_action = Callable())
+	portrait_dialog = _file_dialog("Choose Static PNG Portrait", FileDialog.FILE_MODE_OPEN_FILE)
+	portrait_dialog.filters = PackedStringArray(["*.png ; PNG portrait"])
+	portrait_dialog.file_selected.connect(_portrait_selected)
+	unsaved_dialog = ConfirmationDialog.new()
+	unsaved_dialog.title = "Unsaved Changes"
+	unsaved_dialog.dialog_text = "Save your changes before continuing?"
+	unsaved_dialog.ok_button_text = "Save"
+	unsaved_dialog.add_button("Discard", false, "discard")
+	unsaved_dialog.confirmed.connect(_save_document)
+	unsaved_dialog.custom_action.connect(_on_unsaved_action)
+	unsaved_dialog.canceled.connect(func(): pending_action = Callable())
+	add_child(unsaved_dialog)
+	error_dialog = AcceptDialog.new()
+	error_dialog.title = Identity.project_name()
+	add_child(error_dialog)
+
+
+func _file_dialog(caption: String, mode: FileDialog.FileMode) -> FileDialog:
+	var dialog := FileDialog.new()
+	dialog.title = caption
+	dialog.access = FileDialog.ACCESS_FILESYSTEM
+	dialog.file_mode = mode
+	add_child(dialog)
+	return dialog
+
+
+func _request_transition(action: Callable) -> void:
+	_sync_document_from_editor()
+	if _active_dirty():
+		pending_action = action
+		unsaved_dialog.popup_centered(Vector2i(420, 150))
+	else:
+		action.call()
+
+
+func _active_dirty() -> bool:
+	if active_mode == "character":
+		return has_character and (character_document.dirty or _character_identifier_dirty or not _character_form_error.is_empty())
+	return has_document and document.dirty
+
+
+func _request_switch_mode(mode: String) -> void:
+	if mode == active_mode:
+		_focus_active_editor()
+		return
+	_request_transition(func(): _activate_mode(mode))
+
+
+func _activate_mode(mode: String) -> void:
+	_stop_preview()
+	active_mode = mode
+	editor.visible = mode == "timeline"
+	character_editor.visible = mode == "character"
+	tabs.get_node("Timeline").flat = mode != "timeline"
+	tabs.get_node("Character").flat = mode != "character"
+	tabs.get_node("Timeline").modulate = Color.WHITE if mode == "timeline" else Color(0.75, 0.75, 0.75)
+	tabs.get_node("Character").modulate = Color.WHITE if mode == "character" else Color(0.75, 0.75, 0.75)
+	_refresh_chrome()
+	_focus_active_editor()
+
+
+func _focus_active_editor() -> void:
+	if active_mode == "timeline":
+		editor.focus_editor()
+	elif has_character:
+		character_editor.display_name_field.grab_focus()
+
+
+func _request_new() -> void:
+	if active_mode == "character":
+		_request_new_character()
+	else:
+		_request_transition(_new_document)
+
+
+func _new_document() -> void:
+	_stop_preview()
+	document.new_document()
+	document.workspace = workspace
+	has_document = true
+	_activate_mode("timeline")
+	_show_document()
+	editor.focus_editor()
+
+
+func _request_new_character() -> void:
+	_request_transition(func(): _with_workspace(_new_character))
+
+
+func _new_character() -> void:
+	if workspace == null:
+		_with_workspace(_new_character)
+		return
+	character_document.new_document()
+	character_document.workspace = workspace
+	has_character = true
+	_character_identifier_dirty = false
+	_activate_mode("character")
+	_show_character()
+	character_editor.identifier_field.grab_focus()
+	character_editor.identifier_field.select_all()
+
+
+func _request_open() -> void:
+	_request_transition(_show_open_dialog)
+
+
+func _show_open_dialog() -> void:
+	open_dialog.filters = PackedStringArray(["*.dch ; Dialogic Character"]) if active_mode == "character" else PackedStringArray(["*.dtl ; Dialogic Timeline", "*.dch ; Dialogic Character"])
+	if workspace != null:
+		open_dialog.current_dir = workspace.root_path
+	open_dialog.popup_centered_ratio(0.75)
+
+
+func _request_resource(path: String, kind: String) -> void:
+	if path.is_empty():
+		_request_switch_mode(kind)
+		return
+	_request_transition(func(): _open_selected(path))
+
+
+func _open_selected(path: String) -> void:
+	if path.get_extension().to_lower() == "dch":
+		_with_workspace(func(): _open_character(path))
+		return
+	_stop_preview()
+	document.workspace = workspace
+	var result: Error = document.open_file(path)
+	if result != OK:
+		_show_error(document.last_error)
+		return
+	has_document = true
+	_activate_mode("timeline")
+	_show_document()
+	editor.focus_editor()
+
+
+func _open_character(path: String) -> void:
+	if workspace.content_path(path).is_empty():
+		_show_error("Choose the content folder containing this character before opening it.")
+		return
+	var result: Error = character_document.open_file(path, workspace)
+	if result != OK:
+		_show_error(character_document.last_error)
+		return
+	has_character = true
+	_character_identifier_dirty = false
+	_activate_mode("character")
+	_show_character()
+
+
+func _save_document() -> void:
+	_sync_document_from_editor()
+	if not _can_save_character_form():
+		return
+	var active: RefCounted = character_document if active_mode == "character" else document
+	if not (has_character if active_mode == "character" else has_document):
+		return
+	if active.path.is_empty():
+		_save_as()
+		return
+	_save_selected(active.path)
+
+
+func _save_as() -> void:
+	_sync_document_from_editor()
+	if not _can_save_character_form():
+		return
+	var is_character := active_mode == "character"
+	if not (has_character if is_character else has_document):
+		return
+	var active: RefCounted = character_document if is_character else document
+	if active.read_only:
+		_show_error("This file uses features outside the supported scope and remains read-only.")
+		pending_action = Callable()
+		return
+	save_dialog.title = "Save Character As" if is_character else "Save Timeline As"
+	save_dialog.filters = PackedStringArray(["*.dch ; Dialogic Character"]) if is_character else PackedStringArray(["*.dtl ; Dialogic Timeline"])
+	if not active.path.is_empty():
+		save_dialog.current_dir = active.path.get_base_dir()
+	elif workspace != null:
+		save_dialog.current_dir = workspace.root_path
+	var filename: String = active.path.get_file()
+	if filename.is_empty():
+		filename = character_editor.get_fields().get("identifier", "character") + ".dch" if is_character else "timeline.dtl"
+	save_dialog.current_file = filename
+	save_dialog.popup_centered_ratio(0.75)
+
+
+func _save_selected(path: String) -> void:
+	_sync_document_from_editor()
+	if not _can_save_character_form():
+		return
+	var is_character := active_mode == "character"
+	var active: RefCounted = character_document if is_character else document
+	# Dependencies can change outside this application after the last scan.
+	# Validate the synchronized buffer against fresh resources before any write.
+	if workspace != null:
+		var refresh_result: Error = workspace.refresh()
+		_refresh_workspace_chrome()
+		if refresh_result != OK:
+			pending_action = Callable()
+			_show_error("Could not refresh the content folder before saving. " + workspace.last_error)
+			return
+	if is_character:
+		if workspace == null or workspace.content_path(path).is_empty():
+			pending_action = Callable()
+			_show_error("Save characters inside the selected content folder so their references remain portable.")
+			return
+		var identifier := path.get_file().get_basename()
+		if not ContentWorkspaceType.valid_identifier(identifier):
+			pending_action = Callable()
+			_show_error("Choose a character filename without control characters, quotes, path separators or Dialogic syntax punctuation. The identifiers _ and --All-- are reserved.")
+			return
+		for existing: String in workspace.characters:
+			var entry: Dictionary = workspace.characters[existing]
+			if existing.to_lower() == identifier.to_lower() and str(entry.get("path", "")) != path:
+				pending_action = Callable()
+				_show_error("A character with this identifier already exists in the content folder: " + existing)
+				return
+	var result: Error = active.save_file(path)
+	if result != OK:
+		pending_action = Callable()
+		_show_error(active.last_error)
+		_refresh_chrome()
+		return
+	if is_character:
+		_character_identifier_dirty = false
+		character_editor.set_identifier(active.path.get_file().get_basename())
+		_character_original_identifier = active.path.get_file().get_basename()
+		_character_fields = character_editor.get_fields().duplicate(true)
+	_refresh_workspace(false)
+	_refresh_chrome("Saved: " + active.path)
+	if pending_action.is_valid():
+		var action := pending_action
+		pending_action = Callable()
+		action.call()
+
+
+func _on_unsaved_action(action: StringName) -> void:
+	if action != &"discard":
+		return
+	unsaved_dialog.hide()
+	if not pending_action.is_valid():
+		return
+	var next := pending_action
+	pending_action = Callable()
+	# Inactive sessions stay available after a tab switch. Discard must really
+	# restore the saved session, not leave hidden dirty content behind.
+	if not _discard_active_changes():
+		return
+	next.call()
+
+
+func _discard_active_changes() -> bool:
+	var active: RefCounted = character_document if active_mode == "character" else document
+	if active.path.is_empty():
+		active.new_document()
+	else:
+		var result: Error = active.open_file(active.path, workspace) if active_mode == "character" else active.open_file(active.path)
+		if result != OK:
+			_show_error("Could not restore the saved document. Your edited buffer is still open. " + active.last_error)
+			return false
+	if active_mode == "character":
+		_character_identifier_dirty = false
+		_show_character()
+	else:
+		_show_document()
+	return true
+
+
+func _sync_document_from_editor() -> void:
+	# Save and transitions consume controls directly, before deferred change signals.
+	if active_mode == "character":
+		if has_character and not character_document.read_only:
+			_on_character_fields_changed(character_editor.get_fields())
+	elif has_document and not document.read_only:
+		var text: String = editor.current_text()
+		if text != document.content:
+			_on_content_changed(text)
+
+
+func _on_content_changed(text: String) -> void:
+	if active_mode != "timeline" or not has_document or text == document.content:
+		return
+	document.set_content(text, false)
+	editor.set_preview_available(false)
+	editor.set_diagnostics([])
+	tabs.get_node("PlayTimeline").disabled = true
+	validation_timer.start()
+
+
+func _on_character_fields_changed(fields: Dictionary) -> void:
+	if not has_character or character_document.read_only or fields == _character_fields:
+		return
+	if character_document.path.is_empty():
+		_character_identifier_dirty = fields.get("identifier", "") != _character_original_identifier
+	var result: Error = character_document.update_fields(fields.get("display_name", ""), fields.get("color", Color.WHITE), fields.get("portrait_path", ""))
+	_character_fields = fields.duplicate(true)
+	_character_form_error = character_document.last_error if result != OK else ""
+	_refresh_chrome(_character_form_error)
+
+
+func _can_save_character_form() -> bool:
+	if active_mode == "character" and not _character_form_error.is_empty():
+		pending_action = Callable()
+		_show_error("Correct the character fields before saving. " + _character_form_error)
+		return false
+	return true
+
+
+func _document_title() -> String:
+	var title: String = document.path.get_file() if not document.path.is_empty() else "Untitled.dtl"
+	return title + (" *" if document.dirty else "")
+
+
+func _character_title() -> String:
+	var title: String = character_document.path.get_file() if not character_document.path.is_empty() else "Untitled.dch"
+	return title + (" *" if character_document.dirty or _character_identifier_dirty or not _character_form_error.is_empty() else "")
+
+
+func _show_document() -> void:
+	editor.show_document(_document_title(), document.content, document.read_only, "")
+	_refresh_chrome()
+
+
+func _show_character() -> void:
+	_character_form_error = ""
+	var identifier: String = character_document.path.get_file().get_basename() if not character_document.path.is_empty() else "character"
+	_character_original_identifier = identifier
+	character_editor.show_document(_character_title(), identifier, character_document.character, character_document.read_only, "", character_document.path.is_empty())
+	_character_fields = character_editor.get_fields().duplicate(true)
+	_update_portrait_preview(str(_character_fields.get("portrait_path", "")))
+	_refresh_chrome()
+
+
+func _refresh_chrome(message: String = "", validation: Dictionary = {}) -> void:
+	if is_instance_valid(validation_timer):
+		validation_timer.stop()
+	if active_mode == "character":
+		tabs.get_node("PlayTimeline").disabled = true
+		if has_character:
+			if message.is_empty() and not _character_form_error.is_empty():
+				message = "Cannot save: " + _character_form_error
+			if message.is_empty():
+				message = "Read-only: " + " ".join(character_document.diagnostics) if character_document.read_only else "Native .dch · One static default portrait · " + ("Unsaved" if _active_dirty() else "Ready")
+			character_editor.set_document_state(_character_title(), character_document.read_only, message)
+			sidebar.set_document(character_document.path, character_document.path.get_file() if not character_document.path.is_empty() else "Untitled.dch", _active_dirty(), "character")
+			get_window().title = Identity.window_title(_character_title())
+		else:
+			sidebar.set_document("", "", false, "character")
+			get_window().title = Identity.window_title()
+		return
+	if not has_document:
+		sidebar.set_document("", "", false, "timeline")
+		tabs.get_node("PlayTimeline").disabled = true
+		get_window().title = Identity.window_title()
+		return
+	if validation.is_empty():
+		validation = document.validate_content(document.content)
+	var diagnostics: Array = validation.get("diagnostics", [])
+	if message.is_empty():
+		if not diagnostics.is_empty():
+			message = "Read-only: " if document.read_only else "Cannot save or preview: "
+			message += str(diagnostics[0])
+		else:
+			message = "%d text · %d comment(s) · %d character event(s) | %s" % [validation.get("event_count", 0), validation.get("comment_count", 0), validation.get("character_event_count", 0), "Unsaved" if document.dirty else "Ready"]
+	editor.set_document_state(_document_title(), document.read_only, message)
+	editor.set_diagnostics(validation.get("issues", []))
+	sidebar.set_document(document.path, document.path.get_file() if not document.path.is_empty() else "Untitled.dtl", document.dirty, "timeline")
+	var available := not document.read_only and bool(validation.get("supported", false)) and int(validation.get("event_count", 0)) > 0
+	editor.set_preview_available(available)
+	tabs.get_node("PlayTimeline").disabled = not available
+	get_window().title = Identity.window_title(_document_title())
+
+
+func _choose_workspace() -> void:
+	if workspace != null:
+		workspace_dialog.current_dir = workspace.root_path
+	workspace_dialog.popup_centered_ratio(0.75)
+
+
+func _with_workspace(action: Callable) -> void:
+	if workspace != null:
+		action.call()
+	else:
+		pending_workspace_action = action
+		_choose_workspace()
+
+
+func _open_workspace(path: String) -> void:
+	var candidate := ContentWorkspaceType.new()
+	var result: Error = candidate.open_root(path)
+	if result != OK:
+		pending_workspace_action = Callable()
+		_show_error(candidate.last_error)
+		return
+	_stop_preview()
+	var changed: bool = workspace != null and workspace.root_path != candidate.root_path
+	workspace = candidate
+	document.workspace = workspace
+	character_document.workspace = workspace
+	# A character form belongs to its original content root; do not reinterpret
+	# its portrait paths in a different folder. Timeline buffers stay inspectable.
+	if changed:
+		has_character = false
+		character_document.new_document()
+		_character_fields.clear()
+		_character_form_error = ""
+		_character_identifier_dirty = false
+		character_editor.show_document("Characters", "", null)
+	_refresh_workspace_chrome()
+	_revalidate_timeline_context()
+	_refresh_chrome()
+	if pending_workspace_action.is_valid():
+		var action := pending_workspace_action
+		pending_workspace_action = Callable()
+		action.call()
+
+
+func _refresh_workspace(show_errors: bool = true) -> void:
+	_sync_document_from_editor()
+	if workspace != null:
+		var result: Error = workspace.refresh()
+		if result != OK and show_errors:
+			_show_error(workspace.last_error)
+	_refresh_workspace_chrome()
+	_revalidate_timeline_context()
+	_refresh_chrome()
+
+
+func _refresh_workspace_chrome() -> void:
+	var ids: Array[String] = []
+	if workspace == null:
+		content_label.text = "No content folder · Narration files can still open"
+		content_label.tooltip_text = "Choose a content folder to work with characters and portraits."
+		sidebar.set_workspace("", {}, [])
+	else:
+		var issues: Array = workspace.diagnostics
+		content_label.text = workspace.root_path + (" · %d issue(s)" % issues.size() if not issues.is_empty() else "")
+		content_label.tooltip_text = workspace.root_path + ("\n" + "\n".join(issues) if not issues.is_empty() else "")
+		sidebar.set_workspace(workspace.root_path, workspace.characters, workspace.timelines)
+		for identifier: String in workspace.characters:
+			if workspace.has_character(identifier) and workspace.get_character_error(identifier).is_empty():
+				ids.append(identifier)
+	ids.sort()
+	editor.set_characters(ids)
+
+
+func _revalidate_timeline_context() -> void:
+	if has_document and not document.dirty:
+		var validation: Dictionary = document.validate_content(document.content)
+		document.read_only = not validation.get("supported", false)
+		document.diagnostics.assign(validation.get("diagnostics", []))
+
+
+func _request_portrait() -> void:
+	if has_character and not character_document.read_only:
+		portrait_dialog.popup_centered_ratio(0.75)
+
+
+func _portrait_selected(path: String) -> void:
+	if workspace == null or not has_character or character_document.read_only:
+		return
+	var logical: String = workspace.import_portrait(path)
+	if logical.is_empty():
+		_show_error(workspace.last_error)
+		return
+	_update_portrait_preview(logical)
+	_on_character_fields_changed(character_editor.get_fields())
+
+
+func _update_portrait_preview(logical: String) -> void:
+	var texture: Texture2D = null
+	if workspace != null and not logical.is_empty():
+		var absolute: String = workspace.resolve_content_path(logical)
+		if not absolute.is_empty():
+			var image := Image.load_from_file(absolute)
+			if image != null and not image.is_empty():
+				texture = ImageTexture.create_from_image(image)
+	character_editor.set_portrait_preview(texture, logical)
+
+
+func _start_preview() -> void:
+	_sync_document_from_editor()
+	if active_mode != "timeline" or not has_document:
+		return
+	_refresh_workspace(false)
+	var validation: Dictionary = document.validate_content(document.content)
+	_refresh_chrome("", validation)
+	if document.read_only or not bool(validation.get("supported", false)):
+		_show_error("Preview requires supported content. " + " ".join(validation.get("diagnostics", [])))
+		return
+	if int(validation.get("event_count", 0)) == 0:
+		_show_error("Add a text line before starting preview.")
+		return
+	var result: Error = await preview_window.start_preview(document.content, workspace)
+	if result != OK:
+		_show_error("Dialogic preview could not start (error %d)." % result)
+		return
+	editor.set_preview_state(true)
+	character_editor.set_enabled(false)
+
+
+func _stop_preview() -> void:
+	if is_instance_valid(preview_window):
+		preview_window.stop_preview()
+
+
+func _on_preview_closed() -> void:
+	editor.set_preview_state(false)
+	character_editor.set_enabled(true)
+	_focus_active_editor()
+
+
+func _show_error(message: String) -> void:
+	error_dialog.dialog_text = message
+	error_dialog.popup_centered(Vector2i(540, 160))
+	if active_mode == "timeline":
+		editor.set_status(message)
+	elif has_character:
+		character_editor.set_document_state(_character_title(), character_document.read_only, message)
+
+
+func _shortcut_input(event: InputEvent) -> void:
+	if not event is InputEventKey or not event.pressed or event.echo:
+		return
+	# No main-window shortcut may consume input belonging to a modal workflow.
+	for dialog: Window in [open_dialog, save_dialog, workspace_dialog, portrait_dialog, unsaved_dialog, error_dialog, preview_window]:
+		if is_instance_valid(dialog) and dialog.visible:
+			return
+	var handled := true
+	if event.is_command_or_control_pressed():
+		match event.keycode:
+			KEY_N: _request_new()
+			KEY_O: _request_open()
+			KEY_F:
+				if active_mode == "timeline": editor.show_find()
+				else: handled = false
+			KEY_S:
+				if event.shift_pressed: _save_as()
+				else: _save_document()
+			_: handled = false
+	else:
+		match event.keycode:
+			KEY_F3:
+				if active_mode == "timeline": editor.find_next(event.shift_pressed)
+				else: handled = false
+			KEY_ESCAPE:
+				if active_mode == "timeline" and editor.find_bar.visible: editor.close_find()
+				else: handled = false
+			KEY_F5: _start_preview()
+			KEY_F6: _stop_preview()
+			_: handled = false
+	if handled:
+		get_viewport().set_input_as_handled()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST and is_node_ready():
+		_request_transition(func(): get_tree().quit())
