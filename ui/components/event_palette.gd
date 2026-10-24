@@ -79,7 +79,7 @@ func _ready() -> void:
 	variable_button.set(&"accent_color", Color(0.55, 0.7, 0.4))
 	sections.add_child(variable_button)
 	sections.move_child(variable_button, sections.get_node("LogicHeader").get_index() + 1)
-	variable_button.tooltip_text = "Insert or edit the literal assignment at the caret"
+	variable_button.tooltip_text = "Insert or edit the scalar assignment at the caret"
 	variable_button.pressed.connect(func(): variable_requested.emit())
 	var note := Label.new()
 	note.text = "Text, # comments and basic\ncharacter join / leave.\nChoose a content folder\nto use saved characters."

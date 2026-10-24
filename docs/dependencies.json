@@ -1,6 +1,6 @@
 {
   "product": "PAGE Editor",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "engine": {
     "name": "Godot",
     "version": "4.7.1",

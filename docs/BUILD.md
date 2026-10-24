@@ -1,4 +1,4 @@
-# PAGE Editor 0.0.3 构建与发布
+# PAGE Editor 0.0.4 构建与发布
 
 ## 构建条件
 
@@ -29,7 +29,7 @@ builds/windows/PAGE_Editor.exe
 builds/linux/PAGE_Editor.x86_64
 ```
 
-Windows 产品名和文件描述为 `PAGE Editor`，文件与产品数字版本为 `0.0.3.0`。应用版本为 `0.0.3`。修改集中配置或 SVG 后应重新导出程序，仅改压缩包名不会修改 EXE 内的产品资源。
+Windows 产品名和文件描述为 `PAGE Editor`，文件与产品数字版本为 `0.0.4.0`。应用版本为 `0.0.4`。修改集中配置或 SVG 后应重新导出程序，仅改压缩包名不会修改 EXE 内的产品资源。
 
 两个预设均将 PCK 嵌入可执行程序；不必在程序旁另放 PCK。程序未代码签名。构建需要匹配模板，使用发布包运行应用不需要安装 Godot。
 
@@ -41,19 +41,17 @@ Windows 产品名和文件描述为 `PAGE Editor`，文件与产品数字版本�
 python3 tools/package_release.py --output /absolute/path/to/deliverables
 ```
 
-`--output` 必须是工程目录之外的交付目录。可通过 `--date YYYY-MM-DD` 显式指定发布日期；默认使用运行打包工具的系统日期。
+`--output` 必须是工程目录之外的交付目录。可选 `--date YYYY-MM-DD` 参数校验并记录打包命令使用的日期，默认使用系统日期；它不会自动重写文档日期。ZIP 条目使用固定时间戳。
 
-工具从 `config/branding.cfg` 和 `VERSION.txt` 获取名称和版本，读取 `docs/RELEASE_NOTES.md`、`docs/ROADMAP.md` 和 `docs/TESTCASES.md`，创建三个程序/源码包和两份独立说明文档。所有必要输入必须存在，两个平台程序须已实际导出。本版默认文件名为：
+工具从 `config/branding.cfg` 和 `VERSION.txt` 获取名称和版本，读取 `docs/RELEASE_NOTES.md`、`docs/ROADMAP.md` 和 `docs/TESTCASES.md`，创建三个程序/源码包；发布说明、路线图和测试清单保留在源码 docs/ 中。所有必要输入必须存在，两个平台程序须已实际导出。本版默认文件名为：
 
 | 文件 | 包内根目录或程序 |
 |---|---|
-| `PAGE_Editor_0.0.3_Source.zip` | `PAGE_Editor_v0.0.3/` |
-| `PAGE_Editor_0.0.3_Windows_x86_64.zip` | `PAGE_Editor_0.0.3_Windows_x86_64/PAGE_Editor.exe` |
-| `PAGE_Editor_0.0.3_Linux_x86_64.zip` | `PAGE_Editor_0.0.3_Linux_x86_64/PAGE_Editor.x86_64` |
-| `PAGE_Editor_0.0.3_Release_Notes.md` | 功能、边界、实际构建与测试摘要及三包文件信息 |
-| `PAGE_Editor_0.0.3_Plan_and_Roadmap.md` | 完整版本计划、路线图、约束和交付标准 |
+| `PAGE_Editor_0.0.4_Source.zip` | `PAGE_Editor_v0.0.4/` |
+| `PAGE_Editor_0.0.4_Windows_x86_64.zip` | `PAGE_Editor_0.0.4_Windows_x86_64/PAGE_Editor.exe` |
+| `PAGE_Editor_0.0.4_Linux_x86_64.zip` | `PAGE_Editor_0.0.4_Linux_x86_64/PAGE_Editor.x86_64` |
 
-打包工具先在临时目录准备完整五份构建交付文件，再以拒绝覆盖的方式写入交付目录；遇到已有文件、缺少程序或文档时明确失败。发布说明中的大小和 SHA256 从实际三份压缩包计算；不把包哈希回写进包内文档，不计算自身循环哈希。
+打包工具先在临时目录准备完整三份构建交付文件，再以拒绝覆盖的方式写入交付目录；遇到已有文件、缺少程序或文档时明确失败。工具在控制台输出实际三份压缩包的大小与 SHA256；交付回答和 RECORD 保存这些信息；不把包哈希回写进包内文档，不计算自身循环哈希。
 
 平台包包含运行程序、内容示例、启动说明和必要许可证。Linux 包保留程序可执行权限；若用户的解压工具未保留权限，可执行 `chmod +x PAGE_Editor.x86_64`。
 
@@ -76,13 +74,13 @@ Source 包不包含 `.godot`、构建输出、测试执行数据、恢复进度�
 
 环境前置条件未满足的用例保持未运行，并在发布说明列明阻碍和补测条件；不能据此声明全量验证完成。受限 UID 0 不能代替普通用户权限验证，无真实输入法或文件管理器时不能宣称相应桌面操作通过。
 
-打包前把实际构建信息、测试环境、测试摘要与未运行事项写入 `docs/RELEASE_NOTES.md`，使各平台包中的说明与外部发布说明一致。最终包须对应经过验证的候选程序；重新导出改变程序时按影响重测。构建和导出完成不等于运行测试通过。
+打包前把实际构建信息、测试环境、测试摘要与未运行事项写入 `docs/RELEASE_NOTES.md`，使各平台包中的说明与源码文档一致。最终包须对应经过验证的候选程序；重新导出改变程序时按影响重测。构建和导出完成不等于运行测试通过。
 
-## 本次环境的首次导入异常
+## 导入完成的判断
 
-在本次 Linux 验证环境中，部分全新副本的首次字体导入出现 Godot 进程异常退出（SIGSEGV）；相同源码的其他全新副本导入、双平台导出及重新打包成功。日志最后停在 Noto 字体导入阶段，根因尚未确定，不能据此认定字体文件损坏。异常历史与重新验证结果保留在独立 Test_Progress 包中。
+以进程成功退出、资源导入完成且无脚本错误为完成依据，再执行配置同步和导出。异常时保留日志；修正问题后重新验证，不将异常退出视作成功导入。
 
-遇到首次导入异常时，保留日志并重新执行上述导入命令。以进程成功退出、资源导入完成和无脚本错误为完成依据，再执行配置同步和导出。
+本版验证中，全新导入曾在 NotoSansCJK 字体导入阶段出现线程通知错误和 SIGSEGV。重新解压同一候选后，完整导入、双平台导出和打包通过；原始失败及重跑均保存在独立测试进度包。尚未确认或修复引擎层根因，不能在异常退出后直接继续发布。
 
 ## 配置项目名称和左上角 LOGO（Source 包）
 
@@ -105,11 +103,11 @@ user_data_directory="dialogic-standalone-editor"
 | `app_icon_svg` | 应用图标与 Home 按钮图标 SVG，与横向 LOGO 分开配置；建议使用 256×256 方形画布 |
 | `user_data_directory` | 稳定的用户数据目录标识，字符限制同 `artifact_stem`；单纯调整显示名称时保持不变 |
 
-版本来自 **`VERSION.txt`**，本版内容为 `0.0.3`；平台数字版本同步为 `0.0.3.0`。
+版本来自 **`VERSION.txt`**，本版内容为 `0.0.4`；平台数字版本同步为 `0.0.4.0`。
 
 具体操作：
 
-1. 解压 Source，进入包含 `project.godot` 的 `PAGE_Editor_v0.0.3/`。打开 `config/branding.cfg`。
+1. 解压 Source，进入包含 `project.godot` 的 `PAGE_Editor_v0.0.4/`。打开 `config/branding.cfg`。
 2. 修改 `project_name` 和 `artifact_stem`。只调整显示名称时保持 `user_data_directory` 不变，避免改变用户数据位置。
 3. 替换 `asset/branding/page-logo.svg`，或把新 SVG 放到 `asset/branding/` 并更新 `logo_svg`。必须是真实 SVG XML；建议透明背景、适配深色主题、文字转为轮廓。文件不得超过 2 MiB，不可放在导出排除的 `docs/`、`tools/`、`examples/`、`tests/` 或 `builds/` 中。
 4. 如需修改应用图标，替换 `asset/branding/page-icon.svg` 或更新 `app_icon_svg`。横向 LOGO 与应用图标用途不同；替换一个不自动替换另一个。

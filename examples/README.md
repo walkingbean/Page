@@ -14,3 +14,7 @@
 ## assignment_story
 
 选择该目录为 Content Folder，打开 conversation.dtl。预览展示数值、布尔与字符串赋值；Restart 恢复初值。
+
+## expression_story
+
+0.0.4 标量表达式、SET 计算赋值与文本表达式示例。复制目录并选为 Content Folder；打开 conversation.dtl。

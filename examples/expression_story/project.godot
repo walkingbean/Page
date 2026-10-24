@@ -1,0 +1,7 @@
+config_version=5
+
+[application]
+config/name="Expression Story"
+
+[dialogic]
+variables={"score": 1, "ready": false, "player_name": "访客"}

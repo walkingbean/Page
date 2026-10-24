@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Package the five product deliverables using centralized product identity."""
+"""Package the three product archives using centralized product identity."""
 
 import argparse
 import configparser
@@ -91,7 +91,7 @@ def package_platform(target, platform, label, extension, name, stem, version, ex
     readme = (
         f"# {name} {version} — {label} x86_64\n\n{launch}\n\n"
         "程序包含运行资源，无需安装或打开 Godot 编辑器。需要图形桌面和兼容的图形驱动。\n\n"
-        "将 examples/variable_story 或 examples/character_story 复制到可写目录，"
+        "将 examples/expression_story 或 examples/character_story 复制到可写目录，"
         "在程序中选择该示例目录为 Content Folder，再打开其中的 .dtl。\n\n"
         "实际构建与测试状态、环境限制和未运行事项见 RELEASE_NOTES.md。"
         "测试清单见 docs/TESTCASES.md；Windows 实机验证按发布说明列明。\n\n"
@@ -102,7 +102,7 @@ def package_platform(target, platform, label, extension, name, stem, version, ex
             executable = platform == "linux" and (relative.name == binary_name or relative.suffix == ".sh")
             put(archive, root / relative, path.read_bytes(), executable)
         put(archive, root / "README.md", readme.encode("utf-8"))
-        put(archive, root / "USER_GUIDE.md", documents["README.md"])
+        put(archive, root / "USER_GUIDE.md", ("# 使用说明\n\n请阅读 [完整使用说明](docs/README.md)。\n").encode("utf-8"))
         put(archive, root / "CHANGELOG.md", documents["CHANGELOG.md"])
         put(archive, root / "RELEASE_NOTES.md", documents["docs/RELEASE_NOTES.md"])
         notices = (
@@ -142,13 +142,11 @@ def main():
             f"{prefix}_Source.zip",
             f"{prefix}_Windows_x86_64.zip",
             f"{prefix}_Linux_x86_64.zip",
-            f"{prefix}_Release_Notes.md",
-            f"{prefix}_Plan_and_Roadmap.md",
         ]
         if any(os.path.lexists(output / filename) for filename in filenames):
             raise ValueError("A delivery file already exists; choose a new output directory.")
         documents = {relative: read_required(relative) for relative in (
-            "README.md", "CHANGELOG.md", "docs/RELEASE_NOTES.md",
+            "README.md", "docs/README.md", "CHANGELOG.md", "docs/RELEASE_NOTES.md",
             "docs/ROADMAP.md", "docs/TESTCASES.md", "docs/DEPENDENCIES.md",
         )}
         exports = inspect_exports(stem)
@@ -163,16 +161,6 @@ def main():
             ):
                 package_platform(stage / filenames[index], platform, label, extension,
                                  name, stem, version, exports, documents)
-            table = [
-                "\n## 交付文件信息\n", f"打包日期：{args.date}\n",
-                "| 文件 | 字节数 | SHA256 |", "|---|---:|---|",
-            ]
-            for filename in filenames[:3]:
-                path = stage / filename
-                table.append(f"| {filename} | {path.stat().st_size} | `{digest(path)}` |")
-            notes = documents["docs/RELEASE_NOTES.md"].decode("utf-8")
-            (stage / filenames[3]).write_text(notes.rstrip() + "\n" + "\n".join(table) + "\n", encoding="utf-8")
-            (stage / filenames[4]).write_bytes(documents["docs/ROADMAP.md"])
             created = []
             try:
                 for filename in filenames:

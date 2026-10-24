@@ -1,0 +1,12 @@
+# 标量表达式示例
+常量计算：{1+2*3}
+初始分数：{score}
+set {score} = ({score}+2)*3
+计算后分数：{score}；再加一：{{score}+1}
+set {ready} = {score}>=9 and not false
+是否准备好：{ready}
+set {player_name} = {player_name}+"，你好"
+{player_name}
+set {score} = {score}/3
+整数除法后：{score}
+重新开始会恢复已保存初值。
