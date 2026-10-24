@@ -19,6 +19,7 @@ signal content_changed(text: String)
 @onready var create_timeline_button: Button = %CreateTimelineButton
 @onready var title_label: Label = $Header/HeaderMargin/HeaderRow/TimelineName
 
+var variable_form: ConfirmationDialog
 var source_editor: CodeEdit
 var status_label: Label
 var position_label: Label
@@ -53,6 +54,10 @@ func _ready() -> void:
 	event_palette.connect(&"text_requested", _insert_narration)
 	event_palette.connect(&"comment_requested", _insert_comment)
 	event_palette.connect(&"character_event_requested", _insert_character_source)
+	variable_form = preload("res://ui/components/variable_event_editor.gd").new()
+	variable_form.name = "VariableEventEditor"
+	add_child(variable_form)
+	event_palette.connect(&"variable_requested", func(): variable_form.open_for_editor(source_editor))
 	_refresh_view_state()
 
 

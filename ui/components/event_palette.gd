@@ -1,10 +1,12 @@
 extends PanelContainer
 
+signal variable_requested
 signal text_requested
 signal comment_requested
 signal character_event_requested(source: String)
 
 const BUTTON_SCENE: PackedScene = preload("res://ui/components/event_palette_button.tscn")
+var variable_button: Button
 var text_button: Button
 var comment_button: Button
 var character_button: Button
@@ -71,6 +73,14 @@ func _ready() -> void:
 	leave_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	leave_button.pressed.connect(func(): _insert_character("leave"))
 	actions.add_child(leave_button)
+	variable_button = BUTTON_SCENE.instantiate() as Button
+	variable_button.name = "Variable"
+	variable_button.text = "Variable"
+	variable_button.set(&"accent_color", Color(0.55, 0.7, 0.4))
+	sections.add_child(variable_button)
+	sections.move_child(variable_button, sections.get_node("LogicHeader").get_index() + 1)
+	variable_button.tooltip_text = "Insert or edit the literal assignment at the caret"
+	variable_button.pressed.connect(func(): variable_requested.emit())
 	var note := Label.new()
 	note.text = "Text, # comments and basic\ncharacter join / leave.\nChoose a content folder\nto use saved characters."
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -98,6 +108,8 @@ func set_characters(identifiers: Array[String]) -> void:
 
 func set_editable(enabled: bool) -> void:
 	_editable = enabled
+	if is_instance_valid(variable_button):
+		variable_button.disabled = not enabled
 	if is_instance_valid(text_button):
 		text_button.disabled = not enabled
 	if is_instance_valid(comment_button):

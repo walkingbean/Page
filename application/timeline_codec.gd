@@ -9,6 +9,7 @@ extends RefCounted
 ##             https://docs.dialogic.pro/reference-manager.html
 
 const MAX_SOURCE_BYTES: int = 4 * 1024 * 1024
+const LITERAL = preload("res://application/variable_literal.gd")
 const VARIABLES = preload("res://application/text_variables.gd")
 
 
@@ -52,6 +53,7 @@ static func _validate(source: String, workspace: RefCounted) -> Dictionary:
 	var character_text_count: int = 0
 	var character_event_count: int = 0
 	var expected_events: Array[Dictionary] = []
+	var runtime: Dictionary = workspace.variable_document.runtime_values() if workspace != null and workspace.variable_document != null else {}
 	while index < lines.size():
 		var first_line: int = index + 1
 		var line: String = lines[index]
@@ -90,8 +92,21 @@ static func _validate(source: String, workspace: RefCounted) -> Dictionary:
 			expected_events.append(model)
 			character_event_count += 1
 			continue
+		if event is DialogicVariableEvent:
+			var problem: String = "Choose a content folder with saved variables." if workspace == null or workspace.variable_document == null else workspace.variable_document.preview_error()
+			if not problem.is_empty():
+				_add_issue(issues, first_line, 1, problem)
+				continue
+			var assignment: Dictionary = LITERAL.inspect_event(raw_event, runtime)
+			if assignment.has("error"):
+				_add_raw_issue(issues, source_lines, source_columns, raw_event, assignment.get("offset", 0), assignment.error)
+				continue
+			assignment["line"] = first_line
+			expected_events.append(assignment)
+			runtime[assignment.name] = assignment.value
+			continue
 		if not event is DialogicTextEvent:
-			_add_issue(issues, first_line, 1, "%s is outside this version's Text, Comment and basic Character scope." % event.event_name)
+			_add_issue(issues, first_line, 1, "%s is outside this version's Text, Comment, literal Variable and basic Character scope." % event.event_name)
 			continue
 		var text_event: DialogicTextEvent = event as DialogicTextEvent
 		var escape_offset: int = 1 if raw_event.begins_with("\\") else 0
@@ -126,7 +141,7 @@ static func _validate(source: String, workspace: RefCounted) -> Dictionary:
 			_add_raw_issue(issues, source_lines, source_columns, raw_event, body_offset + random_match.get_start(),
 				"random text selection requires a later version.")
 			continue
-		var variable_result: Dictionary = VARIABLES.inspect(native_body, workspace)
+		var variable_result: Dictionary = VARIABLES.inspect(native_body, workspace, runtime)
 		if variable_result.has("error"):
 			var raw_offset: int = _native_body_source_offset(body, int(variable_result.get("offset", 0)))
 			_add_raw_issue(issues, source_lines, source_columns, raw_event, body_offset + raw_offset, variable_result["error"])
@@ -233,6 +248,10 @@ static func _reference_error(identifier: String, portrait: String, workspace: Re
 
 
 static func _parsed_mismatch(parsed: DialogicEvent, expected: Dictionary, characters: Dictionary) -> String:
+	if expected["kind"] == "variable":
+		if not parsed is DialogicVariableEvent or parsed.operation != DialogicVariableEvent.Operations.SET or parsed.name != expected.name or parsed._value_type != expected.value_type or parsed.value != expected.native_value:
+			return "The official parser did not preserve the Variable literal event."
+		return ""
 	if expected["kind"] == "comment":
 		return "" if parsed is DialogicCommentEvent else "The official parser did not preserve the Comment event."
 	if expected["kind"] == "text" and not parsed is DialogicTextEvent:

@@ -8,7 +8,7 @@ signal delete_requested
 signal selection_requested(variable_name: Variant)
 signal fields_changed
 
-## String-variable form inside the supplied PageContent shell.
+## Typed-variable form inside the supplied PageContent shell.
 ## https://docs.godotengine.org/en/4.7/classes/class_itemlist.html
 ## https://docs.godotengine.org/en/4.7/classes/class_textedit.html
 
@@ -18,6 +18,8 @@ var diagnostics_label: Label
 var item_list: ItemList
 var name_field: LineEdit
 var value_field: TextEdit
+const Literal = preload("res://application/variable_literal.gd")
+var type_selector: OptionButton
 var type_label: Label
 var new_button: Button
 var save_button: Button
@@ -57,7 +59,7 @@ func _ready() -> void:
 	title_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	title_label.add_theme_color_override("font_color", Color(0.843137, 0.772549, 0.552941))
 	header_row.add_child(title_label)
-	new_button = _button(header_row, "New", "New string variable (Ctrl+N)", func(): new_requested.emit())
+	new_button = _button(header_row, "New", "New variable (Ctrl+N)", func(): new_requested.emit())
 	save_button = _button(header_row, "Save", "Save variable defaults (Ctrl+S)", func(): save_requested.emit())
 	var scroll := ScrollContainer.new()
 	scroll.name = "VariableScroll"
@@ -109,12 +111,18 @@ func _ready() -> void:
 	var hint := _label("Letters, digits and underscores; cannot start with a digit. Names are case-sensitive.", 11)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	fields.add_child(hint)
-	type_label = _label("String default value", 12)
+	type_selector = OptionButton.new()
+	type_selector.name = "VariableTypeSelector"
+	for kind: int in [TYPE_STRING, TYPE_INT, TYPE_FLOAT, TYPE_BOOL]:
+		type_selector.add_item(type_string(kind), kind)
+	type_selector.item_selected.connect(func(_index: int): _emit_fields_changed())
+	fields.add_child(type_selector)
+	type_label = _label("Default value", 12)
 	type_label.name = "VariableType"
 	fields.add_child(type_label)
 	value_field = TextEdit.new()
 	value_field.name = "VariableValue"
-	value_field.placeholder_text = "Empty strings are allowed"
+	value_field.placeholder_text = "String: any text; Int/Float: number; Bool: true or false"
 	value_field.custom_minimum_size.y = 140
 	value_field.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	value_field.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
@@ -144,11 +152,11 @@ func show_document(values: Dictionary, selected_name: Variant, has_root: bool, r
 	var keys: Array = values.keys()
 	keys.sort_custom(func(a: Variant, b: Variant) -> bool: return str(a) < str(b))
 	for key: Variant in keys:
-		var supported: bool = key is String and values[key] is String and _valid_identifier(key)
+		var supported: bool = key is String and Literal.supported(values[key]) and _valid_identifier(key)
 		var caption: String = str(key) if key is String else "[" + type_string(typeof(key)) + "] " + str(key)
 		var index: int = item_list.add_item(caption + ("" if supported else "  [read-only]"))
 		item_list.set_item_metadata(index, key)
-		item_list.set_item_tooltip(index, caption + (" · String" if supported else " · Preserved read-only: " + var_to_str(values[key])))
+		item_list.set_item_tooltip(index, caption + (" · " + type_string(typeof(values[key])) if supported else " · Preserved read-only: " + var_to_str(values[key])))
 	_updating = false
 	show_selection(selected_name)
 
@@ -163,16 +171,20 @@ func show_selection(variable_name: Variant, new_item: bool = false) -> void:
 			item_list.select(index)
 			item_list.ensure_current_is_visible()
 	var exists := not new_item and _values.has(variable_name)
-	_field_editable = new_item or (exists and variable_name is String and _values[variable_name] is String and _valid_identifier(variable_name))
+	_field_editable = new_item or (exists and variable_name is String and Literal.supported(_values[variable_name]) and _valid_identifier(variable_name))
 	name_field.text = str(variable_name) if exists else ""
 	value_field.text = str(_values[variable_name]) if exists and _values[variable_name] is String else (var_to_str(_values[variable_name]) if exists else "")
-	type_label.text = "String default value" if _field_editable else ("Read-only · " + type_string(typeof(_values[variable_name])) if exists else "Select a variable or choose New")
+	type_label.text = "Default value" if _field_editable else ("Read-only · " + type_string(typeof(_values[variable_name])) if exists else "Select a variable or choose New")
+	var kind: int = typeof(_values[variable_name]) if exists and _field_editable else TYPE_STRING
+	type_selector.select(maxi(0, type_selector.get_item_index(kind)))
+	type_label.text = "Default value (Bool: true / false)" if _field_editable else type_label.text
 	_updating = false
 	_refresh_state()
 
 
 func get_fields() -> Dictionary:
-	return {"name": name_field.text, "value": value_field.text}
+	var parsed: Dictionary = Literal.parse_field(value_field.text, type_selector.get_selected_id())
+	return {"name": name_field.text, "value": value_field.text, "type": type_selector.get_selected_id(), "parsed_value": parsed.get("value"), "error": parsed.get("error", "")}
 
 
 func select_list_item(variable_name: Variant) -> void:
@@ -214,6 +226,7 @@ func _refresh_state() -> void:
 	item_list.mouse_filter = Control.MOUSE_FILTER_STOP if _enabled else Control.MOUSE_FILTER_IGNORE
 	name_field.editable = editable and _field_editable
 	value_field.editable = editable and _field_editable
+	type_selector.disabled = not editable or not _field_editable
 	apply_button.disabled = not editable or not _field_editable
 	delete_button.disabled = not editable or not _field_editable or _new_item or _selected_name.is_empty()
 

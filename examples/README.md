@@ -1,4 +1,4 @@
-# PAGE Editor 0.0.2 示例
+# PAGE Editor 0.0.3 示例
 
 | 示例 | 打开方式 | 内容 |
 |---|---|---|
@@ -10,3 +10,7 @@
 示例使用 Dialogic 2.0-alpha-20 原生格式。角色样例中的 `res://` 以 `character_story/` 为内容根，不指向 PAGE Editor 安装目录；完整步骤见该目录的 README。
 
 这些文件用于说明本版本的功能范围，不是本轮测试报告。
+
+## assignment_story
+
+选择该目录为 Content Folder，打开 conversation.dtl。预览展示数值、布尔与字符串赋值；Restart 恢复初值。

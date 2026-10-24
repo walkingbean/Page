@@ -79,7 +79,7 @@ func _ready() -> void:
 	var variable_tab: Button = tabs.get_node("Variables")
 	variable_tab.disabled = false
 	variable_tab.add_theme_stylebox_override("normal", tabs.get_node("Timeline").get_theme_stylebox("normal"))
-	variable_tab.tooltip_text = "Edit native string variable defaults"
+	variable_tab.tooltip_text = "Edit native variable defaults"
 	variable_tab.pressed.connect(func(): _request_switch_mode("variables"))
 	_build_content_bar()
 	character_editor = CharacterEditor.new()
@@ -801,14 +801,14 @@ func _variables_dirty() -> bool:
 
 func _variable_status() -> String:
 	if workspace == null:
-		return "Choose a content folder to edit string variables. Narration files can still be edited without one."
+		return "Choose a content folder to edit variables. Narration files can still be edited without one."
 	if not _variable_form_error.is_empty():
 		return "Correct the variable fields: " + _variable_form_error
 	if variable_document.read_only:
 		return "Read-only: " + " ".join(variable_document.diagnostics)
 	if not variable_document.override_warning.is_empty():
 		return variable_document.override_warning
-	var message := "Native string defaults · " + ("Unsaved" if _variables_dirty() else "Ready")
+	var message := "Native variable defaults · " + ("Unsaved" if _variables_dirty() else "Ready")
 	if not FileAccess.file_exists(variable_document.file_path):
 		message += " · First Save creates project.godot in the selected content folder."
 	return message
@@ -845,7 +845,7 @@ func _new_variable() -> void:
 	variable_editor.show_selection("", true)
 	_variable_initial_fields = variable_editor.get_fields().duplicate(true)
 	_variable_form_dirty = true
-	_variable_form_error = "Enter a name for the new string variable."
+	_variable_form_error = "Enter a name for the new variable."
 	_refresh_chrome()
 	variable_editor.name_field.grab_focus()
 
@@ -873,6 +873,8 @@ func _on_variable_fields_changed() -> void:
 
 
 func _variable_fields_error(fields: Dictionary) -> String:
+	if not str(fields.get("error", "")).is_empty():
+		return fields.error
 	var variable_name: String = fields.get("name", "")
 	if not VariableDocumentType.valid_identifier(variable_name):
 		return "Use a nonempty ASCII identifier: letters, digits and underscores; do not start with a digit."
@@ -890,7 +892,7 @@ func _apply_variable_form() -> bool:
 		return false
 	var fields: Dictionary = variable_editor.get_fields()
 	var new_name: String = fields.get("name", "")
-	var result: Error = variable_document.update_variable("" if _variable_new_item else _variable_selected, new_name, fields.get("value", ""))
+	var result: Error = variable_document.update_variable("" if _variable_new_item else _variable_selected, new_name, fields.get("parsed_value"))
 	if result != OK:
 		_variable_form_error = variable_document.last_error
 		_show_error(_variable_form_error)

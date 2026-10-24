@@ -1,0 +1,7 @@
+初始分数：{score}
+set {score} = 10
+现在分数：{score}
+set {ready} = true
+准备状态：{ready}
+set {player_name} = "小明"
+你好，{player_name}。

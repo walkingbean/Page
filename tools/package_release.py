@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Package the six versioned deliverables using centralized product identity."""
+"""Package the five product deliverables using centralized product identity."""
 
 import argparse
 import configparser
@@ -31,6 +31,8 @@ def files_under(folder):
         if any(part in SOURCE_EXCLUSIONS for part in relative.parts):
             continue
         if path.name.endswith((".pyc", ".tmp", ".bak", ".log")):
+            continue
+        if path.name.lower() == "test_progress.zip" or path.name.lower().endswith("_test_progress.zip"):
             continue
         if "-RECORD-" in path.name or path.name.endswith(("_Progress.md", "_Results.md")):
             continue
@@ -142,7 +144,6 @@ def main():
             f"{prefix}_Linux_x86_64.zip",
             f"{prefix}_Release_Notes.md",
             f"{prefix}_Plan_and_Roadmap.md",
-            f"{prefix}_Testcases.md",
         ]
         if any(os.path.lexists(output / filename) for filename in filenames):
             raise ValueError("A delivery file already exists; choose a new output directory.")
@@ -172,7 +173,6 @@ def main():
             notes = documents["docs/RELEASE_NOTES.md"].decode("utf-8")
             (stage / filenames[3]).write_text(notes.rstrip() + "\n" + "\n".join(table) + "\n", encoding="utf-8")
             (stage / filenames[4]).write_bytes(documents["docs/ROADMAP.md"])
-            (stage / filenames[5]).write_bytes(documents["docs/TESTCASES.md"])
             created = []
             try:
                 for filename in filenames:

@@ -1,4 +1,4 @@
-# PAGE Editor 0.0.2 官方资料
+# PAGE Editor 0.0.3 官方资料
 
 本版兼容目标固定为 Godot 4.7.1 / Dialogic 2.0-alpha-20。开发细节对照指定版本源码；在线文档用于补充与核对，不自动改变兼容目标。
 
@@ -9,7 +9,7 @@
 | [Godot 4.7 Windows 应用图标](https://docs.godotengine.org/en/4.7/tutorials/export/changing_application_icon_for_windows.html) | EXE 资源与图标生成 |
 | [Godot ConfigFile](https://docs.godotengine.org/en/4.7/classes/class_configfile.html) | 集中产品配置的 INI / Variant 表达 |
 | [Godot 文件路径](https://docs.godotengine.org/en/4.7/tutorials/io/data_paths.html) | 应用 res://、内容目录与 user:// 的区分 |
-| [Dialogic 变量](https://docs.dialogic.pro/variables.html) | 字符串初值、简单文本引用及超出本版的完整变量能力 |
+| [Dialogic 变量](https://docs.dialogic.pro/variables.html) | 标量初值、字面量赋值、文本引用及后续变量能力 |
 | [Godot 4.7 ProjectSettings](https://docs.godotengine.org/en/4.7/classes/class_projectsettings.html) | project.godot 中的原生项目设置 |
 | [Dialogic 文本](https://docs.dialogic.pro/writing-texts.html) | 文本替换与后续效果处理 |
 | [Dialogic 时间线语法](https://docs.dialogic.pro/timeline-text-syntax.html) | .dtl 文本、角色引用与注释 |
@@ -18,3 +18,13 @@
 | [Dialogic 引用管理](https://docs.dialogic.pro/reference-manager.html) | 角色身份、文件引用与资源依赖 |
 
 源码关注位置：Dialogic 的 CharacterResourceLoader / Saver、DialogicResourceUtil、Text / Character 事件与 Portraits 子系统；Godot 的项目配置、资源导出和 Windows 平台导出器。产品配置只影响 PAGE Editor 的应用身份，保留第三方 API 和资源语义。
+
+## 0.0.3 核对资料
+
+- https://docs.dialogic.pro/variables.html
+- https://docs.dialogic.pro/timeline-text-syntax.html
+- https://docs.dialogic.pro/classes/class_dialogicvariableevent.html
+- https://docs.godotengine.org/en/4.7/tutorials/scripting/gdscript/gdscript_basics.html
+- https://docs.godotengine.org/en/stable/classes/class_expression.html
+
+网络文档用于辅助；行为以随包 Alpha 20 event_variable.gd、subsystem_variables.gd、subsystem_expression.gd 与 Godot 4.7.1 真实执行为准。特别核对字符串去引号、字符串内预处理、字面值名称遮蔽以及动态 SET 类型。未修改第三方插件源码。

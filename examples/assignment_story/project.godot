@@ -1,0 +1,4 @@
+config_version=5
+
+[dialogic]
+variables={"score": 0, "ready": false, "player_name": "访客"}

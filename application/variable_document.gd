@@ -8,6 +8,8 @@ extends RefCounted
 ## References: https://docs.godotengine.org/en/4.7/classes/class_configfile.html
 ##             https://docs.dialogic.pro/variables.html
 
+const Literal = preload("res://application/variable_literal.gd")
+
 const MAX_CONFIG_BYTES: int = 4 * 1024 * 1024
 ## VariantWriter uses MAX_RECURSION=100; retain a lower bound so preserved
 ## nested values can be duplicated and serialized without silent truncation.
@@ -109,28 +111,30 @@ static func valid_identifier(identifier: String) -> bool:
 
 
 func is_editable(identifier: String) -> bool:
-	if read_only or not valid_identifier(identifier) or not values.has(identifier) or not values[identifier] is String:
+	if read_only or not valid_identifier(identifier) or not values.has(identifier) or not Literal.supported(values[identifier]):
 		return false
 	var keys: Array = values.keys()
 	var index: int = keys.find(identifier)
 	return index >= 0 and keys[index] is String
 
 
-func add_variable(identifier: String, value: String = "") -> Error:
+func add_variable(identifier: String, value: Variant = "") -> Error:
 	return update_variable("", identifier, value)
 
 
-func set_value(identifier: String, value: String) -> Error:
+func set_value(identifier: String, value: Variant) -> Error:
 	return update_variable(identifier if values.has(identifier) else "", identifier, value)
 
 
-func update_variable(previous: String, identifier: String, value: String) -> Error:
+func update_variable(previous: String, identifier: String, value: Variant) -> Error:
 	if read_only or root_path.is_empty():
 		return _fail(ERR_UNAVAILABLE, "Select a writable variable configuration before editing.")
 	if not valid_identifier(identifier):
 		return _fail(ERR_INVALID_PARAMETER, "Variable names must match [A-Za-z_][A-Za-z0-9_]*; names are case-sensitive.")
+	if not Literal.supported(value):
+		return _fail(ERR_INVALID_PARAMETER, "Only finite primitive String, Int, Float and Bool values are supported.")
 	if not previous.is_empty() and not is_editable(previous):
-		return _fail(ERR_UNAVAILABLE, "Only existing flat String variables with supported names can be edited.")
+		return _fail(ERR_UNAVAILABLE, "Only existing flat scalar variables with supported names can be edited.")
 	if identifier != previous and values.has(identifier):
 		return _fail(ERR_ALREADY_EXISTS, "A variable or read-only item already uses that exact name.")
 	if not previous.is_empty() and previous != identifier:
@@ -143,13 +147,13 @@ func update_variable(previous: String, identifier: String, value: String) -> Err
 
 func rename_variable(previous: String, identifier: String) -> Error:
 	if not is_editable(previous):
-		return _fail(ERR_UNAVAILABLE, "Only supported String variables can be renamed.")
+		return _fail(ERR_UNAVAILABLE, "Only supported scalar variables can be renamed.")
 	return update_variable(previous, identifier, values[previous])
 
 
 func remove_variable(identifier: String) -> Error:
 	if not is_editable(identifier):
-		return _fail(ERR_UNAVAILABLE, "Only supported String variables can be removed.")
+		return _fail(ERR_UNAVAILABLE, "Only supported scalar variables can be removed.")
 	values.erase(identifier)
 	_update_dirty()
 	last_error = ""
@@ -163,7 +167,7 @@ func saved_values() -> Dictionary:
 func runtime_values() -> Dictionary:
 	var result: Dictionary = {}
 	for key: Variant in _saved:
-		if key is String and valid_identifier(key) and _saved[key] is String:
+		if key is String and valid_identifier(key) and Literal.supported(_saved[key]):
 			result[key] = _saved[key]
 	return result
 
@@ -288,14 +292,14 @@ func save() -> Error:
 
 func _pending_error() -> String:
 	for key: Variant in _saved:
-		if not (key is String and valid_identifier(key) and _saved[key] is String):
+		if not (key is String and valid_identifier(key) and Literal.supported(_saved[key])):
 			if not values.has(key) or var_to_str(values[key]) != var_to_str(_saved[key]):
 				return "Unsupported variable data must remain unchanged."
 	for key: Variant in values:
-		if _saved.has(key) and not (key is String and valid_identifier(key) and _saved[key] is String):
+		if _saved.has(key) and not (key is String and valid_identifier(key) and Literal.supported(_saved[key])):
 			continue
-		if not key is String or not valid_identifier(key) or not values[key] is String:
-			return "Only flat String variables with valid ASCII names can be created or edited."
+		if not key is String or not valid_identifier(key) or not Literal.supported(values[key]):
+			return "Only flat String, Int, Float and Bool variables with valid ASCII names can be created or edited."
 	return ""
 
 
