@@ -1,4 +1,4 @@
-# PAGE Editor 0.0.3 示例
+# PAGE Editor 0.0.5 示例
 
 | 示例 | 打开方式 | 内容 |
 |---|---|---|
@@ -18,3 +18,7 @@
 ## expression_story
 
 0.0.4 标量表达式、SET 计算赋值与文本表达式示例。复制目录并选为 Content Folder；打开 conversation.dtl。
+
+## condition_story
+
+0.0.5 单层条件、分支赋值和后续条件示例。复制目录并选为 Content Folder，打开 conversation.dtl；将 score 初值改为 12、7、2 可体验全部路线。

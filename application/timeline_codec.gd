@@ -10,6 +10,7 @@ extends RefCounted
 
 const MAX_SOURCE_BYTES: int = 4 * 1024 * 1024
 const ASSIGNMENT = preload("res://application/variable_assignment.gd")
+const CONDITIONS = preload("res://application/condition_source.gd")
 const VARIABLES = preload("res://application/text_variables.gd")
 
 
@@ -45,40 +46,43 @@ static func _validate(source: String, workspace: RefCounted) -> Dictionary:
 	if cache.size() < 2:
 		_add_issue(issues, 0, 1, "The Dialogic event catalog could not be initialized.")
 		return _result(issues, 0, 0)
-	var lines: PackedStringArray = normalized.split("\n", true)
+	var structure := CONDITIONS.scan(normalized, cache)
+	issues.assign(structure.issues)
+	if not issues.is_empty():
+		return _result(issues, 0, 0)
 	var random_text_regex := RegEx.create_from_string(r"(?<!\\)<[^>]+/[^>]*>")
-	var index: int = 0
 	var narration_count: int = 0
 	var comment_count: int = 0
 	var character_text_count: int = 0
 	var character_event_count: int = 0
 	var expected_events: Array[Dictionary] = []
 	var runtime: Dictionary = workspace.variable_document.runtime_values() if workspace != null and workspace.variable_document != null else {}
-	while index < lines.size():
-		var first_line: int = index + 1
-		var line: String = lines[index]
-		index += 1
-		var stripped: String = line.strip_edges(true, false)
-		if stripped.is_empty():
+	var active := true
+	var matched := false
+	for record: Dictionary in structure.records:
+		var first_line: int = record.line
+		var event: DialogicEvent = record.event
+		var raw_event: String = record.raw
+		var source_lines: Array[int] = record.source_lines
+		var source_columns: Array[int] = record.source_columns
+		for ending: int in record.ends_before:
+			expected_events.append({"kind": "end", "line": first_line})
+		if event is DialogicConditionEvent:
+			if raw_event.begins_with("if "):
+				matched = false
+			var condition: Dictionary = CONDITIONS.inspect_event(raw_event, runtime, not matched)
+			if condition.has("error"):
+				_add_raw_issue(issues, source_lines, source_columns, raw_event, condition.get("offset", 0), condition.error)
+				active = false
+				continue
+			active = not matched and condition.get("value", false)
+			matched = matched or active
+			condition["line"] = first_line
+			expected_events.append(condition)
 			continue
-		var event: DialogicEvent = DialogicTimeline.event_from_string(stripped, cache)
-		var raw_event: String = stripped
-		# Mirror the original parser's event boundaries. A '#' on a continued
-		# Text line belongs to that Text, rather than to a new Comment event.
-		var source_lines: Array[int] = [first_line]
-		var source_columns: Array[int] = [line.length() - stripped.length() + 1]
-		while not event.is_string_full_event(raw_event) and index < lines.size():
-			var following: String = lines[index].strip_edges(true, false)
-			var following_column: int = lines[index].length() - following.length() + 1
-			index += 1
-			if following.is_empty():
-				break
-			raw_event += "\n" + following
-			source_lines.append(index)
-			source_columns.append(following_column)
-		if line != stripped:
-			_add_issue(issues, first_line, 1, "indented timelines require a later version.")
-			continue
+		if record.indent.is_empty():
+			active = true
+			matched = false
 		if event is DialogicCommentEvent:
 			comment_count += 1
 			expected_events.append({"kind": "comment", "line": first_line})
@@ -97,16 +101,17 @@ static func _validate(source: String, workspace: RefCounted) -> Dictionary:
 			if not problem.is_empty():
 				_add_issue(issues, first_line, 1, problem)
 				continue
-			var assignment: Dictionary = ASSIGNMENT.inspect_event(raw_event, runtime)
+			var assignment: Dictionary = ASSIGNMENT.inspect_event(raw_event, runtime, active)
 			if assignment.has("error"):
 				_add_raw_issue(issues, source_lines, source_columns, raw_event, assignment.get("offset", 0), assignment.error)
 				continue
 			assignment["line"] = first_line
 			expected_events.append(assignment)
-			runtime[assignment.name] = assignment.value
+			if active:
+				runtime[assignment.name] = assignment.value
 			continue
 		if not event is DialogicTextEvent:
-			_add_issue(issues, first_line, 1, "%s is outside this version's Text, Comment, scalar Variable and basic Character scope." % event.event_name)
+			_add_issue(issues, first_line, 1, "%s is outside this version's Text, Comment, scalar Variable, single-level Condition and basic Character scope." % event.event_name)
 			continue
 		var text_event: DialogicTextEvent = event as DialogicTextEvent
 		var escape_offset: int = 1 if raw_event.begins_with("\\") else 0
@@ -141,7 +146,7 @@ static func _validate(source: String, workspace: RefCounted) -> Dictionary:
 			_add_raw_issue(issues, source_lines, source_columns, raw_event, body_offset + random_match.get_start(),
 				"random text selection requires a later version.")
 			continue
-		var variable_result: Dictionary = VARIABLES.inspect(native_body, workspace, runtime)
+		var variable_result: Dictionary = VARIABLES.inspect(native_body, workspace, runtime, active)
 		if variable_result.has("error"):
 			var raw_offset: int = _native_body_source_offset(body, int(variable_result.get("offset", 0)))
 			_add_raw_issue(issues, source_lines, source_columns, raw_event, body_offset + raw_offset, variable_result["error"])
@@ -157,6 +162,8 @@ static func _validate(source: String, workspace: RefCounted) -> Dictionary:
 			character_text_count += 1
 		expected_events.append({"kind": "text", "line": first_line, "identifier": speaker, "portrait": portrait, "text": native_body})
 
+	for ending: int in structure.ends_after:
+		expected_events.append({"kind": "end", "line": normalized.count("\n") + 1})
 	if not issues.is_empty():
 		return _result(issues, narration_count, comment_count, character_text_count, character_event_count)
 	# Keep the actual objects together with the timeline for the runtime host.
@@ -190,6 +197,10 @@ static func _validate(source: String, workspace: RefCounted) -> Dictionary:
 		Engine.remove_meta("dch_directory")
 	var result: Dictionary = _result(issues, narration_count, comment_count, character_text_count, character_event_count)
 	if issues.is_empty():
+		var source_map: Array[int] = []
+		for expected: Dictionary in expected_events:
+			source_map.append(expected.line)
+		timeline.set_meta("source_lines", source_map)
 		timeline.set_meta("preview_characters", characters)
 		var defaults: Dictionary = {}
 		if workspace != null and workspace.variable_document != null:
@@ -248,6 +259,12 @@ static func _reference_error(identifier: String, portrait: String, workspace: Re
 
 
 static func _parsed_mismatch(parsed: DialogicEvent, expected: Dictionary, characters: Dictionary) -> String:
+	if expected["kind"] == "end":
+		return "" if parsed is DialogicEndBranchEvent else "The official parser did not preserve the branch boundary."
+	if expected["kind"] == "condition":
+		if not parsed is DialogicConditionEvent or parsed.condition_type != expected.condition_type or parsed.condition != expected.expression:
+			return "The official parser did not preserve the Condition event."
+		return ""
 	if expected["kind"] == "variable":
 		if not parsed is DialogicVariableEvent or parsed.operation != DialogicVariableEvent.Operations.SET or parsed.name != expected.name or parsed._value_type != expected.value_type or parsed.value != expected.native_value:
 			return "The official parser did not preserve the Variable assignment event."

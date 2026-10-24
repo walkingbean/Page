@@ -1,4 +1,4 @@
-# PAGE Editor 0.0.4 官方资料
+# PAGE Editor 0.0.5 官方资料
 
 本版兼容目标固定为 Godot 4.7.1 / Dialogic 2.0-alpha-20。开发细节对照指定版本源码；在线文档用于补充与核对，不自动改变兼容目标。
 
@@ -39,3 +39,16 @@
 - [Godot 4.7.1 官方发行](https://godotengine.org/download/archive/4.7.1-stable/)
 
 本版核对实际引擎 core/math/expression.cpp 的运算优先级、左结合和 eager 操作数求值；核对固定插件 get_variable 的先查变量再求值、execute_string 的预处理和全串替换顺序、VariableEvent 的类型分类及 SET 动态类型、parse_variables 的原始匹配列表与全串替换。类文档页面可能标注其他 Alpha 版本，差异以提供的 Alpha 20 源码及实际执行为准。未修改第三方插件代码。
+
+## 0.0.5 单层条件核对
+
+本次检索日期：2026-10-24（UTC+8）。
+
+- [Dialogic 时间线语法](https://docs.dialogic.pro/timeline-text-syntax.html)：if / elif / else 与缩进。
+- [Dialogic ConditionEvent](https://docs.dialogic.pro/classes/class_dialogicconditionevent.html)：condition_type 和 condition。
+- [Dialogic 变量与条件](https://docs.dialogic.pro/variables.html)：条件表达式及真值转换。
+- [Godot Expression](https://docs.godotengine.org/en/stable/classes/class_expression.html)：parse、execute 与错误检查。
+
+以资料库中固定版本源码为准，核对 Modules/Condition/event_condition.gd、Modules/Core/event_end_branch.gd、Modules/Core/subsystem_expression.gd、Resources/timeline.gd 与 Resources/event.gd；引擎核对 core/math/expression.cpp 和 Variant 真值规则。在线文档不保证描述 Alpha 20 的全部边界，实际验证使用指定原生参考工程。
+
+重点差异：条件直接 execute_string，不使用 VAR 的裸名直查；未命中分支跳至内部 EndBranch；匹配后其余兄弟分支跳过；空分支与文件结尾的 EndBranch 生成以原生 parser 实际结果为准。Alpha 20 在空格缩进 EOF 按字符数补 EndBranch。本版对照原生事件顺序和真实播放，不修改插件实现。

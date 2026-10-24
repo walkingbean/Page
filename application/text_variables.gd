@@ -9,7 +9,7 @@ const Scalar = preload("res://application/scalar_expression.gd")
 const MAX_EXPANDED_BYTES: int = 4 * 1024 * 1024
 
 
-static func inspect(text: String, workspace: RefCounted = null, runtime: Variant = null) -> Dictionary:
+static func inspect(text: String, workspace: RefCounted = null, runtime: Variant = null, evaluate: bool = true) -> Dictionary:
 	var regex := RegEx.create_from_string(r"(?<!\\)\{(?<variable>([^{}]|\{[^}]*\})*)\}")
 	var matches: Array[RegExMatch] = regex.search_all(text)
 	var by_start: Dictionary = {}
@@ -43,10 +43,12 @@ static func inspect(text: String, workspace: RefCounted = null, runtime: Variant
 	var expanded: String = text.replace("\\{", "{")
 	for found: RegExMatch in matches:
 		var key: String = found.get_string("variable")
-		var evaluated: Dictionary = Scalar.inspect(key, defaults)
+		var evaluated: Dictionary = Scalar.inspect(key, defaults, evaluate)
 		if evaluated.has("error"):
 			var offset: int = found.get_start() if valid_name(key) else found.get_start() + 1 + evaluated.get("offset", 0)
 			return _issue(offset, evaluated.error)
+		if not evaluate:
+			continue
 		var token: String = "{" + key + "}"
 		var value: String = str(evaluated.value)
 		# Bound replacement allocation before constructing the expanded text.

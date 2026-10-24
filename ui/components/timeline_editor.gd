@@ -19,6 +19,7 @@ signal content_changed(text: String)
 @onready var create_timeline_button: Button = %CreateTimelineButton
 @onready var title_label: Label = $Header/HeaderMargin/HeaderRow/TimelineName
 
+var condition_form: ConfirmationDialog
 var variable_form: ConfirmationDialog
 var source_editor: CodeEdit
 var status_label: Label
@@ -58,6 +59,10 @@ func _ready() -> void:
 	variable_form.name = "VariableEventEditor"
 	add_child(variable_form)
 	event_palette.connect(&"variable_requested", func(): variable_form.open_for_editor(source_editor))
+	condition_form = preload("res://ui/components/condition_event_editor.gd").new()
+	condition_form.name = "ConditionEventEditor"
+	add_child(condition_form)
+	event_palette.connect(&"condition_requested", func(): condition_form.open_for_editor(source_editor))
 	_refresh_view_state()
 
 
@@ -136,6 +141,9 @@ func _build_source_editor() -> void:
 	source_editor.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
 	source_editor.auto_brace_completion_enabled = false
 	source_editor.indent_automatic = false
+	source_editor.indent_use_spaces = false
+	source_editor.draw_tabs = true
+	source_editor.draw_spaces = true
 	source_editor.add_theme_font_size_override("font_size", 16)
 	var source_font := SystemFont.new()
 	source_font.font_names = PackedStringArray(["Cascadia Mono", "Noto Sans Mono", "DejaVu Sans Mono", "Microsoft YaHei", "Noto Sans CJK SC", "Yu Gothic"])
@@ -434,19 +442,11 @@ func _on_source_changed() -> void:
 
 
 func _insert_narration() -> void:
-	if not timeline_opened or document_read_only or preview_running:
-		return
-	source_editor.grab_focus()
-	var prefix := "" if source_editor.text.is_empty() or source_editor.get_caret_column() == 0 else "\n"
-	source_editor.insert_text_at_caret(prefix + "New narration.\n")
+	_insert_branch_event("New narration.")
 
 
 func _insert_comment() -> void:
-	if not timeline_opened or document_read_only or preview_running:
-		return
-	source_editor.grab_focus()
-	var prefix := "" if source_editor.text.is_empty() or source_editor.get_caret_column() == 0 else "\n"
-	source_editor.insert_text_at_caret(prefix + "# New comment.\n")
+	_insert_branch_event("# New comment.")
 
 
 func set_characters(identifiers: Array[String]) -> void:
@@ -454,11 +454,27 @@ func set_characters(identifiers: Array[String]) -> void:
 
 
 func _insert_character_source(text: String) -> void:
+	_insert_branch_event(text.trim_suffix("\n"))
+
+
+func _insert_branch_event(text: String) -> void:
 	if not timeline_opened or document_read_only or preview_running:
 		return
 	source_editor.grab_focus()
-	var prefix := "" if source_editor.text.is_empty() or source_editor.get_caret_column() == 0 else "\n"
-	source_editor.insert_text_at_caret(prefix + text)
+	var line := source_editor.get_line(source_editor.get_caret_line())
+	var indent := line.left(line.length() - line.strip_edges(true, false).length())
+	# Preserve the original insertion behavior outside a branch. Inside one,
+	# insert an explicit event before the current line without splitting it.
+	if indent.is_empty():
+		var prefix := "" if source_editor.text.is_empty() or source_editor.get_caret_column() == 0 else "\n"
+		source_editor.insert_text_at_caret(prefix + text + "\n")
+	else:
+		source_editor.remove_secondary_carets()
+		source_editor.begin_complex_operation()
+		source_editor.deselect()
+		source_editor.set_caret_column(0)
+		source_editor.insert_text_at_caret(indent + text + "\n")
+		source_editor.end_complex_operation()
 
 
 func _update_position() -> void:

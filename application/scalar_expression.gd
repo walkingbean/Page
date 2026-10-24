@@ -18,13 +18,13 @@ var issue: Dictionary = {}
 var syntax_only := false
 
 
-static func inspect(source: String, values: Variant = null) -> Dictionary:
+static func inspect(source: String, values: Variant = null, evaluate: bool = true, direct_lookup: bool = true) -> Dictionary:
 	if source.to_utf8_buffer().size() > MAX_SOURCE_BYTES:
 		return _error(0, "Expression exceeds the 65536-byte source limit.")
 	if source.is_empty():
 		return _error(0, "Enter an expression.")
 	var worker := ScalarExpression.new()
-	worker.syntax_only = values == null
+	worker.syntax_only = values == null or not evaluate
 	var scanned := worker._scan(source, true)
 	if scanned.has("error"):
 		return scanned
@@ -32,15 +32,15 @@ static func inspect(source: String, values: Variant = null) -> Dictionary:
 	var key := source
 	if key.begins_with("{") and key.ends_with("}") and key.count("{") == 1:
 		key = key.trim_prefix("{").trim_suffix("}")
-	if values != null and values.has(key):
-		return _value(values[key], 0)
+	if direct_lookup and values != null and values.has(key):
+		return _value(values[key], 0) if evaluate else {"expression": source}
 	var compiled := source
 	var references := RegEx.create_from_string(r"\{([A-Za-z_][A-Za-z0-9_]*)\}").search_all(source)
 	for found: RegExMatch in references:
 		var name := found.get_string(1)
 		if values != null and not values.has(name):
 			return _error(found.get_start(), "Variable '%s' is missing or has an unsupported type. Names are case-sensitive." % name)
-		var replacement := "1" if values == null else var_to_str(values[name])
+		var replacement := "1" if worker.syntax_only else var_to_str(values[name])
 		if values != null:
 			var checked := _value(values[name], found.get_start())
 			if checked.has("error"):
@@ -50,7 +50,7 @@ static func inspect(source: String, values: Variant = null) -> Dictionary:
 			return _error(found.get_start(), "Expanded expression exceeds the 4 MiB limit.")
 		# Match Alpha 20: original match list, global replacement on current text.
 		compiled = compiled.replace(found.get_string(), replacement)
-	if RegEx.create_from_string(r"\A[A-Za-z_][A-Za-z0-9_]*\z").search(source) != null and source not in ["true", "false"]:
+	if direct_lookup and RegEx.create_from_string(r"\A[A-Za-z_][A-Za-z0-9_]*\z").search(source) != null and source not in ["true", "false"]:
 		if values != null:
 			return _error(0, "Variable '%s' is missing or has an unsupported type. Names are case-sensitive." % source)
 		compiled = "1"
@@ -74,7 +74,7 @@ static func inspect(source: String, values: Variant = null) -> Dictionary:
 		return worker.issue
 	if worker.cursor != worker.tokens.size():
 		return _error(worker.tokens[worker.cursor].at, "Unexpected expression token.")
-	if values == null:
+	if worker.syntax_only:
 		return {"expression": source}
 	# The bounded walk has checked every eager operation; now obtain the exact
 	# whole-expression value from the same engine parser used by Dialogic.

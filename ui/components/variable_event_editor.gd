@@ -11,6 +11,7 @@ var source_editor: CodeEdit
 var original_source := ""
 var source_line := 0
 var editing := false
+var indentation := ""
 
 
 func _ready() -> void:
@@ -62,6 +63,8 @@ func open_for_editor(editor: CodeEdit) -> void:
 	original_source = editor.text
 	source_line = editor.get_caret_line()
 	var line := editor.get_line(source_line)
+	indentation = line.left(line.length() - line.strip_edges(true, false).length())
+	line = line.strip_edges(true, false)
 	editing = line.begins_with("set")
 	var model: Dictionary = Assignment.inspect_event(line) if editing else {}
 	if model.has("error"):
@@ -100,6 +103,7 @@ func _apply() -> void:
 	if check.has("error"):
 		message.text = check.error
 		return
+	line = indentation + line
 	# This form edits one explicit event; secondary carets must not duplicate it.
 	source_editor.remove_secondary_carets()
 	source_editor.begin_complex_operation()

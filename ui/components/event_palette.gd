@@ -1,11 +1,13 @@
 extends PanelContainer
 
+signal condition_requested
 signal variable_requested
 signal text_requested
 signal comment_requested
 signal character_event_requested(source: String)
 
 const BUTTON_SCENE: PackedScene = preload("res://ui/components/event_palette_button.tscn")
+var condition_button: Button
 var variable_button: Button
 var text_button: Button
 var comment_button: Button
@@ -81,6 +83,14 @@ func _ready() -> void:
 	sections.move_child(variable_button, sections.get_node("LogicHeader").get_index() + 1)
 	variable_button.tooltip_text = "Insert or edit the scalar assignment at the caret"
 	variable_button.pressed.connect(func(): variable_requested.emit())
+	condition_button = BUTTON_SCENE.instantiate() as Button
+	condition_button.name = "Condition"
+	condition_button.text = "Condition"
+	condition_button.set(&"accent_color", Color(0.75, 0.55, 0.8))
+	sections.add_child(condition_button)
+	sections.move_child(condition_button, sections.get_node("FlowHeader").get_index() + 1)
+	condition_button.tooltip_text = "Insert or edit a single-level if / elif / else at the caret"
+	condition_button.pressed.connect(func(): condition_requested.emit())
 	var note := Label.new()
 	note.text = "Text, # comments and basic\ncharacter join / leave.\nChoose a content folder\nto use saved characters."
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -108,6 +118,8 @@ func set_characters(identifiers: Array[String]) -> void:
 
 func set_editable(enabled: bool) -> void:
 	_editable = enabled
+	if is_instance_valid(condition_button):
+		condition_button.disabled = not enabled
 	if is_instance_valid(variable_button):
 		variable_button.disabled = not enabled
 	if is_instance_valid(text_button):

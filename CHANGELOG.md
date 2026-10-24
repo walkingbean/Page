@@ -1,5 +1,11 @@
 # PAGE Editor 版本变更
 
+## 0.0.5 — 单层条件
+
+- 原生 if / elif / else、分支边界、内部 EndBranch 和路径准确的预检与预览。
+- Condition 属性表单及分支内事件编辑，源行列诊断与文件保护。
+- condition_story 示例；更新完整测试、文档与额外 firestorage.ai 交付规则。
+
 ## 0.0.4
 
 - 标量算术、比较、逻辑表达式及原生文本表达式。

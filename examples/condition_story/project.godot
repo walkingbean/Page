@@ -1,0 +1,7 @@
+config_version=5
+
+[application]
+config/name="Condition Story"
+
+[dialogic]
+variables={"score": 7, "route": "未选择", "ready": false}
