@@ -106,11 +106,7 @@ func runtime_characters() -> Dictionary:
 	for identifier: String in characters:
 		if has_character(identifier):
 			var original: DialogicCharacter = characters[identifier]["resource"]
-			var clone: DialogicCharacter = DialogicCharacter.new()
-			clone.display_name = original.display_name
-			clone.color = original.color
-			clone.default_portrait = original.default_portrait
-			clone.portraits = original.portraits.duplicate(true)
+			var clone: DialogicCharacter = original.duplicate(true)
 			result[identifier] = clone
 	return result
 

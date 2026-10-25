@@ -1,0 +1,27 @@
+{
+"@path": "res://addons/dialogic/Resources/character.gd",
+"@subpath": NodePath(""),
+&"_translation_id": "",
+&"color": Color(1, 0.84313726, 0, 1),
+&"custom_info": {
+"chapter": 1,
+"demo": true
+},
+&"default_portrait": "idle",
+&"description": "PAGE Editor 0.3.0 portrait demonstration
+原生角色与立绘示例",
+&"display_name": "Layered",
+&"mirror": false,
+&"nicknames": ["layered", "角色Layered"],
+&"offset": Vector2(0, 0),
+&"portraits": {
+"idle": {
+"export_overrides": {},
+"mirror": false,
+"offset": Vector2(0, 0),
+"scale": 1.0,
+"scene": "res://portraits/layered.tscn"
+}
+},
+&"scale": 1.0
+}

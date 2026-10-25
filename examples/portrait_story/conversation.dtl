@@ -1,0 +1,18 @@
+# PAGE Editor 0.3.0 native portrait demonstration
+join Jane (idle) left [animation="Fade In" length="0.2" wait="true"]
+join Antonio right
+Jane: I am highlighted while speaking.
+Antonio: Now it is my turn.
+update Jane (close) center [mirrored="true" z_index="3" fade="Fade Cross" fade_length="0.2" move_time="0.3" move_ease="out" move_trans="cubic"]
+Jane: My alternate portrait has its own scale and offset.
+update Jane [animation="Bounce" length="0.25" repeat="2" wait="true"]
+Jane (idle): An explicit text portrait switches back.
+leave --All-- [animation="Fade Out" length="0.2" wait="true"]
+join Layered center [extra_data="set Badges/Gold"]
+Layered: Gold badge selected.
+update Layered [extra_data="set Badges/Blue" mirrored="true"]
+Layered: Blue badge selected and mirrored.
+update Layered [extra_data="hide Badges"]
+Layered: The badge group is hidden.
+leave --All--
+Finished.

@@ -142,7 +142,7 @@ static func _validate_local(source: String, workspace: RefCounted, flow_mode: bo
 					narration_count += 1
 			continue
 		if not event is DialogicTextEvent:
-			_add_issue(issues, first_line, 1, "%s is outside this version's Text, Comment, scalar Variable, nested Condition, Choice, Jump/Return/End and basic Character scope." % event.event_name)
+			_add_issue(issues, first_line, 1, "%s is outside this version's Text, Comment, scalar Variable, nested Condition, Choice, Jump/Return/End and Character scope." % event.event_name)
 			continue
 		var text_event: DialogicTextEvent = event as DialogicTextEvent
 		var escape_offset: int = 1 if raw_event.begins_with("\\") else 0
@@ -191,7 +191,7 @@ static func _validate_local(source: String, workspace: RefCounted, flow_mode: bo
 	var characters: Dictionary = shared_characters if flow_mode else (workspace.runtime_characters() if workspace != null else {})
 	for expected: Dictionary in expected_events:
 		var identifier: String = expected.get("identifier", "")
-		if not identifier.is_empty() and not characters.get(identifier) is DialogicCharacter:
+		if not identifier.is_empty() and identifier != "--All--" and not characters.get(identifier) is DialogicCharacter:
 			_add_issue(issues, expected["line"], 1, "Character '%s' has no validated runtime .dch resource; temporary character fallback is not supported." % identifier)
 	if not issues.is_empty():
 		return _result(issues, narration_count, comment_count, character_text_count, character_event_count)
@@ -230,35 +230,7 @@ static func _validate_local(source: String, workspace: RefCounted, flow_mode: bo
 
 
 static func _character_model(raw: String, workspace: RefCounted) -> Dictionary:
-	# Alpha 20 recognizes any line beginning with 'join', 'leave' or 'update'.
-	# Its regex also accepts trailing text and incomplete names. Restrict those
-	# cases before calling from_text, which assumes a successful regex match.
-	if raw.begins_with("update"):
-		return {"error": "Character Update requires a later version."}
-	var dynamic_offset: int = _first_of(raw, "{}[]")
-	if dynamic_offset >= 0:
-		return {"error": "Character expressions and optional shortcode arguments require a later version.", "offset": dynamic_offset}
-	var regex := RegEx.create_from_string(r'^(?<type>join|leave)[ \t]+(?:"(?<quoted>[^"\r\n]+)"|(?<bare>[^ \t"():\r\n]+))(?:[ \t]*\((?<portrait>[^()\r\n]*)\))?(?:[ \t]+(?<position>left|center|right))?[ \t]*$')
-	var matched: RegExMatch = regex.search(raw)
-	if matched == null:
-		return {"error": "Use join Identifier [left|center|right] or leave Identifier; only the default portrait is supported."}
-	var identifier: String = matched.get_string("quoted") if not matched.get_string("quoted").is_empty() else matched.get_string("bare")
-	identifier = identifier.strip_edges()
-	if identifier.is_empty():
-		return {"error": "A Character event requires a nonempty workspace character identifier."}
-	if identifier == "--All--":
-		return {"error": "Leave All requires a later version.", "offset": raw.find(identifier)}
-	var portrait: String = matched.get_string("portrait").strip_edges()
-	var position: String = matched.get_string("position")
-	var action: String = matched.get_string("type")
-	if action == "leave" and (not portrait.is_empty() or not position.is_empty() or raw.contains("(")):
-		return {"error": "Leave supports only a character identifier in this version."}
-	var reference_error: String = _reference_error(identifier, portrait, workspace)
-	if not reference_error.is_empty():
-		return {"error": reference_error, "offset": maxi(0, raw.find(identifier))}
-	return {"kind": "character", "identifier": identifier, "portrait": portrait,
-		"action": DialogicCharacterEvent.Actions.JOIN if action == "join" else DialogicCharacterEvent.Actions.LEAVE,
-		"position": "center" if position.is_empty() else position}
+	return preload("res://application/character_event_source.gd").inspect(raw, workspace)
 
 
 static func _reference_error(identifier: String, portrait: String, workspace: RefCounted) -> String:
@@ -272,8 +244,8 @@ static func _reference_error(identifier: String, portrait: String, workspace: Re
 	if character == null:
 		var details: String = workspace.get_character_error(identifier)
 		return details if not details.is_empty() else "Character '%s' has no supported .dch file in this workspace." % identifier
-	if not portrait.is_empty() and (portrait != character.default_portrait or not character.portraits.has(portrait)):
-		return "Only character '%s' default portrait is supported in this version." % identifier
+	if not portrait.is_empty() and not character.portraits.has(portrait):
+		return "Character '%s' does not contain the selected portrait." % identifier
 	return ""
 
 
@@ -299,7 +271,10 @@ static func _parsed_mismatch(parsed: DialogicEvent, expected: Dictionary, charac
 	if expected["kind"] == "character" and not parsed is DialogicCharacterEvent:
 		return "The official parser did not preserve the Character event."
 	var identifier: String = expected["identifier"]
-	if identifier.is_empty():
+	if identifier == "--All--":
+		if parsed.character != null or parsed.character_identifier != identifier:
+			return "The native parser did not preserve Leave All."
+	elif identifier.is_empty():
 		if parsed.character != null or not parsed.character_identifier.is_empty() or not parsed.portrait.is_empty():
 			return "The official parser found an unexpected character or portrait dependency."
 	else:
@@ -308,8 +283,7 @@ static func _parsed_mismatch(parsed: DialogicEvent, expected: Dictionary, charac
 		if parsed.portrait != expected["portrait"]:
 			return "The official parser found an unexpected portrait dependency."
 	if expected["kind"] == "character":
-		if parsed.action != expected["action"] or parsed.transform != expected["position"]:
-			return "The official parser found an unsupported Character action or position."
+		return preload("res://application/character_event_source.gd").mismatch(parsed, expected)
 	return ""
 
 

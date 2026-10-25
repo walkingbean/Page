@@ -1,5 +1,6 @@
 extends PanelContainer
 
+signal character_properties_requested(kind: String)
 signal choice_requested
 signal flow_requested(kind: String)
 signal inline_requested
@@ -10,6 +11,7 @@ signal comment_requested
 signal character_event_requested(source: String)
 
 const BUTTON_SCENE: PackedScene = preload("res://ui/components/event_palette_button.tscn")
+var character_property_buttons: Array[Button] = []
 var flow_buttons: Array[Button] = []
 var inline_button: Button
 var condition_button: Button
@@ -80,6 +82,15 @@ func _ready() -> void:
 	leave_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	leave_button.pressed.connect(func(): _insert_character("leave"))
 	actions.add_child(leave_button)
+	for entry: String in ["Properties", "Update", "Leave All"]:
+		var button := Button.new()
+		button.name = entry.replace(" ", "")
+		button.text = entry
+		controls.add_child(button)
+		character_property_buttons.append(button)
+		button.pressed.connect(func():
+			if entry == "Leave All": character_event_requested.emit("leave --All--\n")
+			else: character_properties_requested.emit("update" if entry == "Update" else "join"))
 	variable_button = BUTTON_SCENE.instantiate() as Button
 	variable_button.name = "Variable"
 	variable_button.text = "Variable"
@@ -118,7 +129,7 @@ func _ready() -> void:
 		sections.move_child(button, choice_button.get_index() + flow_buttons.size())
 		flow_buttons.append(button)
 	var note := Label.new()
-	note.text = "Text, # comments and basic\ncharacter join / leave.\nChoose a content folder\nto use saved characters."
+	note.text = "Text, # comments and\nCharacter properties.\nChoose a content folder\nto use saved characters."
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.add_theme_font_size_override("font_size", 12)
 	note.add_theme_color_override("font_color", Color(0.55, 0.57, 0.63))
@@ -144,7 +155,7 @@ func set_characters(identifiers: Array[String]) -> void:
 
 func set_editable(enabled: bool) -> void:
 	_editable = enabled
-	for button: Button in flow_buttons:
+	for button: Button in flow_buttons + character_property_buttons:
 		button.disabled = not enabled
 	if is_instance_valid(inline_button):
 		inline_button.disabled = not enabled

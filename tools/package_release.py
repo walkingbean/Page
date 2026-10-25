@@ -19,6 +19,7 @@ SOURCE_EXCLUSIONS = {
     ".godot", ".git", "builds", "tests", "qa", "validation",
     "evidence", "test-results", "__pycache__",
 }
+SOURCE_ONLY_DOCUMENTS = {"RELEASE_NOTES.md", "ROADMAP.md", "TESTCASES.md", "DELIVERY_RULES.md"}
 
 
 def files_under(folder):
@@ -91,10 +92,10 @@ def package_platform(target, platform, label, extension, name, stem, version, ex
     readme = (
         f"# {name} {version} — {label} x86_64\n\n{launch}\n\n"
         "程序包含运行资源，无需安装或打开 Godot 编辑器。需要图形桌面和兼容的图形驱动。\n\n"
-        "将 examples/flow_story、examples/nested_story 或 examples/character_story 复制到可写目录，"
+        "将 examples/portrait_story、examples/flow_story 或 examples/character_story 复制到可写目录，"
         "在程序中选择该示例目录为 Content Folder，再打开其中的 .dtl。\n\n"
-        "实际构建与测试状态、环境限制和未运行事项见 RELEASE_NOTES.md。"
-        "测试清单见 docs/TESTCASES.md；Windows 实机验证按发布说明列明。\n\n"
+        "发布说明、路线图及完整测试清单位于同版本 Source 包的 docs/ 中。"
+        "独立测试进度包提供实际执行证据；Windows 实机验证依约延期至 1.0.0。\n\n"
         "功能、边界与操作见 USER_GUIDE.md；第三方声明见 THIRD_PARTY_NOTICES.md 和 third_party/。\n"
     )
     with ZipFile(target, "x") as archive:
@@ -104,7 +105,6 @@ def package_platform(target, platform, label, extension, name, stem, version, ex
         put(archive, root / "README.md", readme.encode("utf-8"))
         put(archive, root / "USER_GUIDE.md", ("# 使用说明\n\n请阅读 [完整使用说明](docs/README.md)。\n").encode("utf-8"))
         put(archive, root / "CHANGELOG.md", documents["CHANGELOG.md"])
-        put(archive, root / "RELEASE_NOTES.md", documents["docs/RELEASE_NOTES.md"])
         notices = (
             f"# {name} 第三方声明\n\n"
             "依赖版本与许可见 [依赖和许可说明](docs/DEPENDENCIES.md)。\n\n"
@@ -113,6 +113,8 @@ def package_platform(target, platform, label, extension, name, stem, version, ex
         put(archive, root / "THIRD_PARTY_NOTICES.md", notices.encode("utf-8"))
         for folder in ("examples", "third_party", "docs"):
             for path, relative in files_under(PROJECT / folder):
+                if folder == "docs" and relative.name in SOURCE_ONLY_DOCUMENTS:
+                    continue
                 put(archive, root / folder / relative, path.read_bytes())
 
 

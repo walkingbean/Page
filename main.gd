@@ -92,6 +92,12 @@ func _ready() -> void:
 	character_editor.save_as_requested.connect(_save_as)
 	character_editor.portrait_requested.connect(_request_portrait)
 	character_editor.fields_changed.connect(_on_character_fields_changed)
+	character_editor.portrait_selected.connect(_update_portrait_preview)
+	var layer_editor := preload("res://ui/components/layered_portrait_editor.gd").new()
+	layer_editor.name = "LayeredPortraitEditor"
+	add_child(layer_editor)
+	character_editor.layered_requested.connect(func(path: String): layer_editor.open_scene(workspace, path))
+	layer_editor.saved.connect(func(path: String): character_editor.use_layered_scene(path))
 	variable_editor = VariableEditor.new()
 	variable_editor.name = "VariableEditor"
 	$MainLayout/PageContent.add_child(variable_editor)
@@ -489,7 +495,12 @@ func _on_character_fields_changed(fields: Dictionary) -> void:
 		return
 	if character_document.path.is_empty():
 		_character_identifier_dirty = fields.get("identifier", "") != _character_original_identifier
-	var result: Error = character_document.update_fields(fields.get("display_name", ""), fields.get("color", Color.WHITE), fields.get("portrait_path", ""))
+	if not fields.get("form_error", "").is_empty():
+		_character_fields = fields.duplicate(true)
+		_character_form_error = fields.form_error
+		_refresh_chrome(_character_form_error)
+		return
+	var result: Error = character_document.update_fields(fields.get("display_name", ""), fields.get("color", Color.WHITE), fields.get("portrait_path", ""), fields)
 	_character_fields = fields.duplicate(true)
 	_character_form_error = character_document.last_error if result != OK else ""
 	_refresh_chrome(_character_form_error)
@@ -545,7 +556,7 @@ func _refresh_chrome(message: String = "", validation: Dictionary = {}) -> void:
 			if message.is_empty() and not _character_form_error.is_empty():
 				message = "Cannot save: " + _character_form_error
 			if message.is_empty():
-				message = "Read-only: " + " ".join(character_document.diagnostics) if character_document.read_only else "Native .dch · One static default portrait · " + ("Unsaved" if _active_dirty() else "Ready")
+				message = "Read-only: " + " ".join(character_document.diagnostics) if character_document.read_only else "Native .dch · Characters and portraits · " + ("Unsaved" if _active_dirty() else "Ready")
 			character_editor.set_document_state(_character_title(), character_document.read_only, message)
 			sidebar.set_document(character_document.path, character_document.path.get_file() if not character_document.path.is_empty() else "Untitled.dch", _active_dirty(), "character")
 			get_window().title = Identity.window_title(_character_title())
@@ -659,6 +670,7 @@ func _refresh_workspace_chrome() -> void:
 				ids.append(identifier)
 	ids.sort()
 	editor.set_characters(ids)
+	editor.content_workspace = workspace
 
 
 func _revalidate_timeline_context() -> void:

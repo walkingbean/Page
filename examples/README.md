@@ -28,3 +28,7 @@
 本版嵌套条件、赋值、条件文本组合示例。复制并选为 Content Folder；ready 设 true/false，score 设 12/7/2，保存后重启比较所有路线。
 
 - `flow_story/`：条件选项、嵌套分支、角色与跨时间线 Jump / Return。
+
+## portrait_story — 角色与立绘
+
+在 Content Folder 选择此文件夹，打开 conversation.dtl。示例依次展示高亮、多立绘变换、UPDATE、原生动画、全部退场和 LayeredPortrait 的 Badges/Gold、Badges/Blue 排他切换。角色图片来自既有 character_story；色块为本项目生成的分层演示素材。角色页可调整别名、描述和自定义信息；Layer editor 可直接编辑 portraits/layered.tscn。迁入原生工程时保留相对路径并合并 project.godot 的 dialogic 配置，不覆盖目标工程其他设置。

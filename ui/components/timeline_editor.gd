@@ -19,6 +19,8 @@ signal content_changed(text: String)
 @onready var create_timeline_button: Button = %CreateTimelineButton
 @onready var title_label: Label = $Header/HeaderMargin/HeaderRow/TimelineName
 
+var content_workspace: RefCounted
+var character_form: ConfirmationDialog
 var choice_form: ConfirmationDialog
 var flow_form: ConfirmationDialog
 var inline_form: ConfirmationDialog
@@ -58,6 +60,10 @@ func _ready() -> void:
 	event_palette.connect(&"text_requested", _insert_narration)
 	event_palette.connect(&"comment_requested", _insert_comment)
 	event_palette.connect(&"character_event_requested", _insert_character_source)
+	character_form = preload("res://ui/components/character_event_editor.gd").new()
+	character_form.name = "CharacterEventEditor"
+	add_child(character_form)
+	event_palette.connect(&"character_properties_requested", func(kind: String): character_form.open_for_editor(source_editor, content_workspace, kind))
 	variable_form = preload("res://ui/components/variable_event_editor.gd").new()
 	variable_form.name = "VariableEventEditor"
 	add_child(variable_form)
@@ -87,7 +93,7 @@ func _build_toolbar() -> void:
 	title_label.custom_minimum_size.x = 70
 	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	$Header/HeaderMargin/HeaderRow/Info.tooltip_text = "Native Dialogic .dtl: narration, comments, character dialogue and basic join / leave."
+	$Header/HeaderMargin/HeaderRow/Info.tooltip_text = "Native Dialogic .dtl: narration, comments, character dialogue and Character events."
 	$Header/HeaderMargin/HeaderRow/Spacer.hide()
 	$Header/HeaderMargin/HeaderRow/TextEditor.hide()
 	$Header/HeaderMargin/HeaderRow/Utility.hide()

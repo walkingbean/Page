@@ -42,34 +42,37 @@ func open_file(file_path: String, source_workspace: RefCounted = null) -> Error:
 	return OK
 
 
-func update_fields(display_name: String, color: Color, image_path: String = "") -> Error:
+func update_fields(display_name: String, color: Color, image_path: String = "", details: Dictionary = {}) -> Error:
 	if read_only:
 		return _fail(ERR_UNAVAILABLE, "This character contains unsupported properties and remains read-only.")
 	var candidate: DialogicCharacter = character.duplicate(true) if character != null else DialogicCharacter.new()
 	candidate.display_name = display_name
 	candidate.color = color
-	if image_path.is_empty():
-		candidate.default_portrait = ""
-		candidate.portraits = {}
+	if details.has("portraits"):
+		for key: String in ["nicknames", "description", "custom_info", "scale", "offset", "mirror", "portraits", "default_portrait"]:
+			if details.has(key):
+				var value: Variant = details[key]
+				candidate.set(key, value.duplicate(true) if value is Dictionary or value is Array else value)
 	else:
-		var portrait_name: String = candidate.default_portrait if not candidate.default_portrait.is_empty() else DEFAULT_PORTRAIT
-		candidate.default_portrait = portrait_name
-		if candidate.portraits.has(portrait_name):
-			var existing: Dictionary = candidate.portraits[portrait_name]
-			if decoded_image_path(existing.get("export_overrides", {}).get("image", "")) != image_path:
-				existing["export_overrides"]["image"] = var_to_str(image_path)
+		# Legacy single-image API: preserve the remaining portraits when replacing.
+		if image_path.is_empty():
+			candidate.default_portrait = ""
+			candidate.portraits = {}
 		else:
-			candidate.portraits = {portrait_name: {"scene": "", "export_overrides": {"image": var_to_str(image_path)}, "scale": 1, "offset": Vector2(), "mirror": false}}
+			var selected: String = candidate.default_portrait if not candidate.default_portrait.is_empty() else DEFAULT_PORTRAIT
+			candidate.default_portrait = selected
+			if not candidate.portraits.has(selected):
+				candidate.portraits[selected] = {"scene": "", "export_overrides": {}, "scale": 1.0, "offset": Vector2(), "mirror": false}
+			candidate.portraits[selected]["export_overrides"]["image"] = var_to_str(image_path)
 	var next_content: String = var_to_str(inst_to_dict(candidate))
 	var result: Dictionary = validate_content(next_content)
 	if not result["supported"]:
 		return _fail(ERR_INVALID_DATA, "\n".join(result["diagnostics"]))
-	# Updating a form without changing values must retain original source bytes.
 	if character != null and inst_to_dict(candidate) == inst_to_dict(character):
 		last_error = ""
 		return OK
 	character = candidate
-	portrait_path = image_path
+	portrait_path = result.portrait_path
 	set_content(next_content)
 	return OK
 
@@ -96,60 +99,112 @@ func validate_content(text: String) -> Dictionary:
 	for key: Variant in values:
 		if not (key is String or key is StringName) or not defaults.has(key):
 			issues.append("Unknown character property: " + str(key))
-	for key: Variant in defaults:
-		if key in ["@path", "@subpath", "display_name", "color", "default_portrait", "portraits"]:
-			continue
-		if values.get(key, defaults[key]) != defaults[key]:
-			issues.append("Property is outside the current editable scope: " + str(key))
+	if values.get("_translation_id", "") != "":
+		issues.append("Character translation metadata requires a later version.")
 	var name_value: Variant = values.get("display_name", "")
 	var color_value: Variant = values.get("color", Color())
-	var default_value: Variant = values.get("default_portrait", "")
-	var portraits_value: Variant = values.get("portraits", {})
-	if not name_value is String or String(name_value).contains("\n") or String(name_value).contains("\r") or String(name_value).contains("{") or String(name_value).contains("}") or String(name_value).contains("[") or String(name_value).contains("]"):
+	if not name_value is String or not plain_name(name_value, true):
 		issues.append("Display name must be plain single-line text, without expressions or formatting tags.")
 	if not color_value is Color or not _valid_color(color_value):
 		issues.append("Character color must have finite RGBA components between 0 and 1.")
+	var aliases: Variant = values.get("nicknames", [])
+	if not aliases is Array or aliases.size() > 1024:
+		issues.append("Nicknames must be an array of at most 1024 plain names.")
+	else:
+		for alias: Variant in aliases:
+			if not alias is String or not plain_name(alias):
+				issues.append("Nicknames must be nonempty plain single-line names.")
+	if not values.get("description", "") is String:
+		issues.append("Description must be text.")
+	if not values.get("custom_info", {}) is Dictionary or not inert_data(values.get("custom_info", {})):
+		issues.append("Custom info must be a dictionary of finite inert values; objects and resources are not allowed.")
+	if not valid_transform(values):
+		issues.append("Character scale must be positive and finite, offset finite Vector2, mirror boolean.")
+	var default_value: Variant = values.get("default_portrait", "")
+	var portraits_value: Variant = values.get("portraits", {})
+	var image_path := ""
 	if not default_value is String or not portraits_value is Dictionary:
 		issues.append("Portrait data has invalid types.")
-	var image_path: String = ""
-	if default_value is String and portraits_value is Dictionary:
-		if portraits_value.is_empty():
-			if not default_value.is_empty():
-				issues.append("The default portrait does not exist.")
-		elif portraits_value.size() != 1 or not portraits_value.has(default_value) or String(default_value).is_empty():
-			issues.append("This editor supports at most one portrait, selected as the default portrait.")
-		else:
-			var portrait: Variant = portraits_value[default_value]
-			if not portrait is Dictionary or not _supported_portrait_keys(portrait) or portrait.get("scene", null) != "" or not portrait.get("export_overrides", null) is Dictionary:
-				issues.append("Only Dialogic's default static-image portrait scene is supported.")
-			else:
-				var overrides: Dictionary = portrait["export_overrides"]
+	elif portraits_value.size() > 1024:
+		issues.append("At most 1024 portraits are supported.")
+	else:
+		if not default_value.is_empty() and not portraits_value.has(default_value):
+			issues.append("The default portrait does not exist.")
+		if not portraits_value.is_empty() and default_value.is_empty():
+			issues.append("Select an existing default portrait.")
+		for key: Variant in portraits_value:
+			if not (key is String or key is StringName) or not plain_name(str(key)) or String(key).contains("(") or String(key).contains(")"):
+				issues.append("Portrait names must be nonempty plain names without parentheses.")
+				continue
+			var entry: Variant = portraits_value[key]
+			if not entry is Dictionary or not _supported_portrait_keys(entry) or not valid_transform(entry):
+				issues.append("Portrait '%s' has unknown properties or invalid transforms." % key)
+				continue
+			var scene: Variant = entry.get("scene", "")
+			var overrides: Variant = entry.get("export_overrides", {})
+			if not scene is String or not overrides is Dictionary:
+				issues.append("Portrait '%s' scene or overrides have invalid types." % key)
+				continue
+			if scene in ["", "res://addons/dialogic/Modules/DefaultPortrait/default_portrait.tscn", HIGHLIGHT]:
 				if overrides.size() != 1 or not overrides.get("image", null) is String:
-					issues.append("Only the default portrait's image property is supported.")
+					issues.append("Static and Highlight portraits require one image override.")
+					continue
+				var logical := decoded_image_path(overrides.image)
+				var problem := validate_image(logical, workspace)
+				if not problem.is_empty():
+					issues.append("Portrait '%s': %s" % [key, problem])
+				if key == default_value:
+					image_path = logical
+			else:
+				if workspace == null:
+					issues.append("Select the content folder to resolve the layered portrait.")
+				elif not overrides.is_empty():
+					issues.append("Layered portraits store properties in their native scene; unknown export overrides remain read-only.")
 				else:
-					image_path = decoded_image_path(overrides["image"])
-					if not _logical_png_path(image_path):
-						issues.append("Portrait image must use a portable res:// path to a PNG inside the content folder.")
-					elif workspace == null:
-						issues.append("Select the content folder to resolve this character's portrait.")
-					else:
-						var absolute: String = workspace.resolve_content_path(image_path)
-						if absolute.is_empty():
-							issues.append("Portrait image leaves the content folder or follows a symbolic link.")
-						else:
-							var png_error: String = workspace.validate_png(absolute)
-							if not png_error.is_empty():
-								issues.append(png_error)
+					var layer := preload("res://application/layered_portrait_document.gd").inspect_path(scene, workspace)
+					if not layer.supported:
+						issues.append("Portrait '%s': %s" % [key, " ".join(layer.diagnostics)])
 	var result_character: DialogicCharacter = null
-	# Do not use dict_to_inst on input: constructing the known class and assigning
-	# only validated properties prevents nested or substituted script execution.
 	if issues.is_empty():
 		result_character = DialogicCharacter.new()
-		result_character.display_name = name_value
-		result_character.color = color_value
-		result_character.default_portrait = default_value
-		result_character.portraits = portraits_value.duplicate(true)
+		for key: String in ["display_name", "color", "nicknames", "description", "custom_info", "scale", "offset", "mirror", "default_portrait", "portraits"]:
+			result_character.set(key, values.get(key, defaults[key]))
 	return {"supported": issues.is_empty(), "diagnostics": issues, "character": result_character, "portrait_path": image_path}
+
+const HIGHLIGHT := "res://addons/dialogic/Modules/HighlightPortrait/simple_highlight_portrait.tscn"
+
+static func plain_name(value: String, empty_ok: bool = false) -> bool:
+	return (empty_ok or not value.strip_edges().is_empty()) and not RegEx.create_from_string("[\\x00-\\x1f{}\\[\\]]").search(value)
+
+static func valid_transform(value: Dictionary) -> bool:
+	var scale_value: Variant = value.get("scale", 1.0)
+	var off: Variant = value.get("offset", Vector2())
+	return (scale_value is float or scale_value is int) and is_finite(scale_value) and scale_value > 0 and scale_value <= 10000 and off is Vector2 and is_finite(off.x) and is_finite(off.y) and value.get("mirror", false) is bool and value.get("ignore_char_scale", false) is bool
+
+static func inert_data(value: Variant, depth: int = 0) -> bool:
+	if depth > 24:
+		return false
+	match typeof(value):
+		TYPE_NIL, TYPE_BOOL, TYPE_INT, TYPE_STRING, TYPE_STRING_NAME: return true
+		TYPE_FLOAT: return is_finite(value)
+		TYPE_VECTOR2: return is_finite(value.x) and is_finite(value.y)
+		TYPE_COLOR: return _valid_color(value)
+		TYPE_ARRAY:
+			for item: Variant in value:
+				if not inert_data(item, depth + 1): return false
+			return true
+		TYPE_DICTIONARY:
+			for key: Variant in value:
+				if not (key is String or key is StringName) or not inert_data(value[key], depth + 1): return false
+			return true
+	return false
+
+static func validate_image(logical: String, source_workspace: RefCounted) -> String:
+	if not _logical_png_path(logical): return "Portrait image must use a portable res:// path to a PNG inside the content folder."
+	if source_workspace == null: return "Select the content folder to resolve this character's portrait."
+	var absolute: String = source_workspace.resolve_content_path(logical)
+	if absolute.is_empty(): return "Portrait image leaves the content folder or follows a symbolic link."
+	return source_workspace.validate_png(absolute)
 
 
 static func decoded_image_path(value: String) -> String:
@@ -163,9 +218,9 @@ static func decoded_image_path(value: String) -> String:
 
 static func _supported_portrait_keys(portrait: Dictionary) -> bool:
 	for key: Variant in portrait:
-		if not key in ["scene", "export_overrides", "scale", "offset", "mirror"]:
+		if not key in ["scene", "export_overrides", "scale", "offset", "mirror", "ignore_char_scale"]:
 			return false
-	return portrait.get("scale", 1) == 1 and portrait.get("offset", Vector2()) == Vector2() and portrait.get("mirror", false) == false
+	return true
 
 
 static func _valid_color(value: Color) -> bool:

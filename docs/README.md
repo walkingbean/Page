@@ -1,8 +1,8 @@
-# PAGE Editor 0.2.0
+# PAGE Editor 0.3.0
 
 PAGE Editor 是基于 **Godot 4.7.1 / Dialogic 2.0-alpha-20** 的独立对话创作程序。发布程序可直接运行，无须打开 Godot 编辑器；Source 包用于修改与构建。
 
-本版提供 Choice、条件选项、Label、Jump、Return、End 与跨时间线流程；提供嵌套 if / elif / else 条件、对应属性编辑、标量表达式、表达式赋值与文本表达式，以及原生时间线编辑与预览、基础角色、单张默认立绘、基本进退场及内容目录管理。完整 Dialogic 功能按[版本路线图](ROADMAP.md)逐步实现。
+本版提供 Choice、条件选项、Label、Jump、Return、End 与跨时间线流程；提供嵌套 if / elif / else 条件、对应属性编辑、标量表达式、表达式赋值与文本表达式，以及原生时间线编辑与预览、角色属性、多立绘和原生演出控制及内容目录管理。完整 Dialogic 功能按 Source 包中的版本路线图（docs/ROADMAP.md）逐步实现。
 
 ## 运行与基础操作
 
@@ -12,7 +12,7 @@ PAGE Editor 是基于 **Godot 4.7.1 / Dialogic 2.0-alpha-20** 的独立对话创
 - 实际构建、测试环境和未运行事项见对应发布说明。Windows 实机测试按计划在 1.0.0 交付前统一进行；不能把 Linux 上的 Windows 包检查视为实机验证。
 
 1. 使用 **Content Folder** 选择内容根目录。可选普通文件夹或目标 Godot 工程根目录。打开、浏览不自动改写工程设置；显式保存变量时写入该根的 `project.godot`。
-2. 在 **Character** 页新建角色，填写标识、显示名称和颜色，选择一张 PNG 作为默认立绘，保存为 `.dch`。新角色标识对应文件名；修改显示名不改变引用标识。
+2. 在 **Character** 页新建角色，填写标识、显示名称、别名等属性，管理多张立绘并选择默认项，保存为 `.dch`。新角色标识对应文件名；修改显示名不改变引用标识。
 3. 在 **Timeline** 页新建或打开 `.dtl`，编写角色文本、旁白、注释与基本进退场，保存后使用 **Play / F5** 预览。
 4. Enter、Space、Advance 或点击对话区域推进；等待选项时使用鼠标或键盘选择，Advance 不代选。Esc / F6 / Close 停止，Restart 从头播放。
 5. 在 **Variables** 页创建 String / Int / Float / Bool 变量并保存；在台词中使用 `{player_name}` 等简单引用。变量操作与保存规则见下节。
@@ -32,12 +32,12 @@ PAGE Editor 是基于 **Godot 4.7.1 / Dialogic 2.0-alpha-20** 的独立对话创
 
 ## 当前功能与边界
 
-| 内容 | 0.2.0 范围 |
+| 内容 | 0.3.0 范围 |
 |---|---|
 | 时间线 | 原生 `.dtl` 新建、打开、编辑、保存、另存为；旁白、注释、基础角色文本 |
 | 角色 | 原生 `.dch` 新建、打开、编辑、保存；文件名标识、静态显示名称、名字颜色 |
-| 默认立绘 | 每角色最多一张 PNG，可导入内容目录；按内容根解析相对路径 |
-| 进退场 | 基本 `join` / `leave`；`left`、`center`、`right` 位置及默认事件行为 |
+| 角色与立绘 | 别名、描述、自定义信息、多立绘、默认选择、全局和单立绘变换、HighlightPortrait 与受限原生分层场景 |
+| 角色事件 | JOIN / UPDATE / LEAVE All；五种预设位置、自定义位置与大小、旋转、层级、镜像和原生动画属性 |
 | 内容目录 | 时间线、角色和立绘依赖扫描；重复标识、缺失角色及图片诊断 |
 | 变量 | 扁平 String / Int / Float / Bool 变量的新建、编辑、改名、删除及字面初值；原生保存与重新打开 |
 | 文本引用 | 旁白和基础角色台词中的 `{variable_name}`；缺失引用与非法名称诊断 |
@@ -50,7 +50,7 @@ PAGE Editor 是基于 **Godot 4.7.1 / Dialogic 2.0-alpha-20** 的独立对话创
 | 文件保护 | 未保存处理、外部修改冲突处理；超范围文件只读保护；非法内容或缺失依赖时阻止相应保存和预览 |
 | 产品配置 | 集中配置名称、文件名前缀、左上角 LOGO、应用图标与稳定用户数据目录；版本单独管理 |
 
-尚未提供变量文件夹、函数调用、角色别名、高级角色属性、多立绘切换、`UPDATE`、自定义场景、动画与变换、媒体、样式编辑、术语、翻译、完整视觉事件块编辑和完整目标工程管理。未支持的界面入口保持禁用。
+尚未提供变量文件夹、函数调用、动态角色/立绘表达式、任意自定义脚本/场景/动画、媒体、样式编辑、术语、翻译、完整视觉事件块编辑和完整目标工程管理。未支持的界面入口保持禁用。
 
 含未知事件或高级角色属性的既有文件采用只读保护；不会静默删除属性后保存。需要完整功能时，可在安装对应 Dialogic 版本的 Godot 工程中继续编辑这些文件。
 
@@ -84,9 +84,51 @@ bob: 再见。
 leave bob
 ```
 
-`alice`、`bob` 是 `.dch` 文件名标识，显示名称可以是中文。带空格的引用标识需加双引号；`_`、`--All--` 等原生命令特殊标识不作为角色名。角色文本不自动让角色入场；使用 `join` 显示默认立绘。省略位置时采用中心位置，`leave` 不带位置。
+`alice`、`bob` 是 `.dch` 文件名标识，显示名称可以是中文。带空格的引用标识需加双引号；`_`、`--All--` 等原生命令特殊标识不作为角色名。角色文本不自动让角色入场；使用 `join` 显示默认或指定立绘。省略位置时采用中心位置，`leave` 不带位置。
 
 把内容交给已安装 **Dialogic 2.0-alpha-20** 的 Godot 工程时，将内容根**内部**的目录复制到目标工程根，并保持相对路径。不要额外增加一层 `content/` 而不调整资源引用。变量配置只合并 `[dialogic]` 中的 `variables` 字典；不要用内容目录的最小 `project.godot` 覆盖目标工程的整个配置。等待 Godot 导入资源，并确认角色文件名标识唯一。自定义资源标识、批量重命名及自动修复引用不在本版范围。
+
+## 角色、多立绘与演出
+
+Character 页提供 Nicknames（每行一个）、Description（多行）和 Custom info（原生字典）。Custom info 可保存字符串、整数、有限浮点、布尔、数组和嵌套字典；不执行对象、脚本或资源构造。Identifier 始终来自 `.dch` 文件名，别名不会建立第二套引用标识。
+
+Portraits 列表选择当前立绘；填写名称后使用 Add、Rename、Duplicate 或 Delete。Choose PNG 将图片复制进内容目录，复制立绘不会复制或删除图片文件。Default portrait 选择默认项；删除默认立绘时选取剩余项，删空后默认名为空。改名不自动改写其他时间线，旧引用会诊断。新增空立绘须选择图片或有效分层场景后才能保存。
+
+角色与立绘均可设置 scale、offset X/Y、mirror；Ignore character scale 对应原生 `ignore_char_scale`。缩放为正有限值（不超过 10000），镜像按固定原版组合语义执行。立绘选择只改变当前编辑项，不自动改变默认项。非默认图片缺失也会阻止损坏内容被作为完整角色保存或播放。
+
+Timeline 事件区的 **Properties** 在当前 Character 事件行编辑属性，否则插入；**Update** 插入/编辑 UPDATE，**Leave All** 插入全部退场。字段留空表示不写该参数，显式 `false` 和 `0` 会保留为更新操作。Apply 是一次撤销操作；过期表单拒绝覆盖新源文本。
+
+```text
+join Alice (idle) left [animation="Fade In" length="0.2" wait="true"]
+Alice: Hello.
+update Alice (happy) right [mirrored="true" z_index="3" fade="Fade Cross" fade_length="0.2" move_time="0.3" move_ease="out" move_trans="cubic"]
+Alice (idle): Back to idle.
+update Alice [animation="Bounce" length="0.2" repeat="2" wait="true"]
+leave --All-- [animation="Fade Out" length="0.2" wait="true"]
+```
+
+默认位置为 leftmost / left / center / right / rightmost；也可使用 `pos=x0.5y1 size=y400px rot=20`（支持比例、百分数及 px）。省略 JOIN 位置使用 center；UPDATE 省略的立绘、位置、镜像、层级不被重置。文本显式立绘可切换；无指定立绘的文本保持原生当前立绘行为。
+
+动画只接受固定插件内对应类型的原生名称。`length`、`fade_length`、`move_time` 为 0–3600 秒，`repeat` 为 1–10000，`z_index` 为 -4096–4096。`repeat_forever="true"` 启用无限重复，此时须 `wait="false"`；关闭/重启预览会清理动画及临时资源。参数名称以 Alpha 20 固定源码为准，例如立绘淡变时长使用 `fade_length`。
+
+### HighlightPortrait 与 LayeredPortrait
+
+Preset 选择 HighlightPortrait 后为当前立绘选择 PNG。说话者高亮、其余角色变暗与临时层级均由原版预设处理。
+
+选择 LayeredPortrait scene 后填写内容根内 `res://…tscn`，使用 **Layer editor** 创建或打开。根为 CanvasGroup，Add group 新增 Node2D，Add sprite 新增 Sprite2D；填写名称、父路径（`.` 为根）、PNG、位置、缩放和 Visible 后点击 Apply layer，最后 Save scene and use。重命名组同步更新其后代路径；删除组同时删除该组子节点，不删除 PNG。fix_offset 使用原生底部对齐行为。关闭未保存的层编辑窗口会放弃该窗口内的场景草稿；导入的 PNG 副本保留。
+
+新场景以标准 Godot `.tscn` 保存，固定脚本引用 `addons/dialogic/Modules/LayeredPortrait/custom_layered_portrait.gd`；打开的原生 `layered_portrait.gd` 场景保留原脚本路径。已有场景、资源 UID 和节点 `unique_id` 在编辑后保留。仅支持 CanvasGroup 根、Node2D 分组、Sprite2D 图层和内容目录内 PNG；未知脚本、节点、属性、连接、继承场景与额外资源保持只读，不静默删减。图片及分层场景均从选定内容根解析；固定预设脚本从应用资源根提供。
+
+```text
+join Layered [extra_data="hide Group/Open, show Group/Closed"]
+Layered: Closed eyes.
+update Layered (idle) [extra_data="set Group/Open, hide Body"]
+Layered: Open eyes.
+```
+
+`show` / `hide` 使用有效节点路径；`set` 只能选择 Sprite2D，并按原生行为隐藏同组其他 Sprite2D。缺少目标层会诊断。UPDATE 未指定立绘时，附加命令必须对该角色所有可能的立绘有效；可显式指定分层立绘消除歧义。
+
+示例 `examples/portrait_story/` 演示多立绘、高亮、动画和原生分层。将示例作为独立 Content Folder 打开；迁入原生工程时保持相对路径并合并目标配置。
 
 ## 变量类型、赋值与文本引用
 
@@ -244,9 +286,9 @@ Windows 图标与元数据导出、平台打包步骤见 [docs/BUILD.md](BUILD.m
 | `third_party/` | 第三方许可证与声明 |
 
 - [版本变更](../CHANGELOG.md)
-- [完整路线图、最终目标、约束和交付标准](ROADMAP.md)
+- Source 包内 `docs/ROADMAP.md`：完整路线图、最终目标、约束和交付标准
 - [构建与平台说明](BUILD.md)
-- [本版完整测试清单](TESTCASES.md)
+- Source 包内 `docs/TESTCASES.md`：本版完整测试清单
 - [依赖说明](DEPENDENCIES.md)和[依赖清单](dependencies.json)
 - [官方资料](OFFICIAL_REFERENCES.md)
 

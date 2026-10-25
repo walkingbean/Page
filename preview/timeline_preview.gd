@@ -36,7 +36,7 @@ var _input_surface: Control
 var _choice_canvas: CanvasLayer
 var _workspace: RefCounted
 var _runtime_characters: Dictionary = {}
-var _runtime_textures: Array[ImageTexture] = []
+var _runtime_textures: Array[Resource] = []
 var _previous_directory: Dictionary = {}
 var _directory_active := false
 var _generation := 0
@@ -97,7 +97,7 @@ func start_preview(source: String, workspace: RefCounted = null, source_path: St
 	if timeline == null:
 		last_error = "Dialogic could not parse the supported timeline."
 		return ERR_PARSE_ERROR
-	var textures: Array[ImageTexture] = []
+	var textures: Array[Resource] = []
 	if not _prepare_portraits(timeline, workspace, _generation + 1, textures):
 		Codec.GRAPH.release(timeline)
 		return ERR_CANT_OPEN
@@ -139,7 +139,7 @@ func restart() -> void:
 		start_preview(_source, _workspace, _source_path)
 
 
-func _begin(timeline: DialogicTimeline, generation: int, textures: Array[ImageTexture]) -> void:
+func _begin(timeline: DialogicTimeline, generation: int, textures: Array[Resource]) -> void:
 	await _clear_runtime()
 	if generation != _generation or not is_inside_tree():
 		Codec.GRAPH.release(timeline)
@@ -206,11 +206,17 @@ func _clear_runtime() -> void:
 	if not is_instance_valid(_handler):
 		return
 	_resetting = true
+	# Alpha 20 keeps animation nodes under Portraits, separately from the
+	# layout. Stop their completion signals before removing their target nodes.
+	# This also releases repeating animations on close and restart.
+	for animation: Node in _handler.Portraits.get_children():
+		if animation is DialogicAnimation:
+			animation.set_block_signals(true)
+			animation.queue_free()
 	# Native timeline cleanup yields one frame before disconnecting suspended
 	# event signals. Detach the old text nodes first so a finishing reveal cannot
 	# resume an old event after clear() has reset its timeline index to -1.
 	_discard_layout()
-	_handler.paused = false
 	_handler.Inputs.stop_timers()
 	_handler.Inputs.auto_skip.enabled = false
 	_handler.Inputs.auto_advance.enabled_forced = false
@@ -219,17 +225,38 @@ func _clear_runtime() -> void:
 	# DialogicTimeline.clean() waits one frame; awaiting it prevents an older
 	# cleanup coroutine from wiping the next preview's timeline.
 	await _handler.clear(DialogicGameHandler.ClearFlags.FULL_CLEAR)
+	# Resume only after native portrait state is empty. The native paused
+	# setter invokes _resume even when already false; stale animation metadata
+	# must never be resumed during teardown.
+	if _handler.paused:
+		_handler.paused = false
 	_restore_resources()
 	_resetting = false
 	_reset_completed.emit()
 
 
-func _prepare_portraits(timeline: DialogicTimeline, workspace: RefCounted, generation: int, textures: Array[ImageTexture]) -> bool:
+func _prepare_portraits(timeline: DialogicTimeline, workspace: RefCounted, generation: int, textures: Array[Resource]) -> bool:
 	var characters: Dictionary = timeline.get_meta("preview_characters", {})
 	for identifier: String in characters:
 		var character: DialogicCharacter = characters[identifier]
 		for portrait_name: String in character.portraits:
 			var portrait: Dictionary = character.portraits[portrait_name]
+			var scene_path: String = portrait.get("scene", "")
+			if not scene_path.is_empty() and not scene_path.begins_with("res://addons/"):
+				var layers = preload("res://application/layered_portrait_document.gd")
+				var checked: Dictionary = layers.inspect_path(scene_path, workspace)
+				if not checked.supported:
+					last_error = " ".join(checked.diagnostics)
+					return false
+				var packed: PackedScene = layers.runtime_scene(checked.model, workspace)
+				if packed == null:
+					last_error = "A layered portrait dependency changed during preview preparation."
+					return false
+				var virtual_scene := "res://__preview_cache_%d/%d/%d.tscn" % [get_instance_id(), generation, textures.size()]
+				packed.take_over_path(virtual_scene)
+				textures.append(packed)
+				portrait["scene"] = virtual_scene
+				continue
 			var overrides: Dictionary = portrait.get("export_overrides", {})
 			var logical_path: String = overrides.get("image", "")
 			# Alpha 20's editor stores exported strings using var_to_str; its
@@ -278,7 +305,7 @@ func _restore_resources() -> void:
 	_runtime_characters = {}
 	# Clear cache ownership immediately, even if a queued layout still retains a
 	# texture for the remainder of this frame. No virtual path survives a stop.
-	for texture: ImageTexture in _runtime_textures:
+	for texture: Resource in _runtime_textures:
 		texture.resource_path = ""
 	_runtime_textures.clear()
 

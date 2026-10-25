@@ -1,4 +1,4 @@
-# PAGE Editor 0.2.0 官方资料
+# PAGE Editor 0.3.0 官方资料
 
 本版兼容目标固定为 Godot 4.7.1 / Dialogic 2.0-alpha-20。开发细节对照指定版本源码；在线文档用于补充与核对，不自动改变兼容目标。
 
@@ -77,3 +77,18 @@
 具体以固定源码 Modules/Choice/event_choice.gd、subsystem_choices.gd、node_choice_button.gd、Modules/Jump/event_jump.gd、event_label.gd、event_return.gd、subsystem_jump.gd、Modules/End/event_end.gd、Core/DialogicGameHandler.gd、DialogicResourceUtil.gd 和 Resources/timeline.gd 为准。
 
 核对重点：Choice 额外参数保留字符串值；else 的默认行为由内容工程配置提供；全不可选时采用原生 AUTO_SKIP。Jump 固定时间线资源，标签在执行时可展开变量；重复标签选择第一个；Return 恢复跳转之后，空栈结束。原生事件 deferred 执行，因此应用的运行错误检查置于事件派发之前。解析先分配完整资源图再设置引用，可保留合法循环。原生事件、资源和子系统文件保持未修改。
+
+## 0.3.0 角色与立绘依据
+
+- https://docs.dialogic.pro/characters-and-portraits.html：别名、描述、默认和多立绘、变换。
+- https://docs.dialogic.pro/event-character.html：JOIN / UPDATE / LEAVE、位置与动画属性。
+- https://docs.dialogic.pro/layered-portraits.html：原生分层预设及 show/hide/set。
+- https://docs.dialogic.pro/custom-portraits.html：原生立绘接口和资源覆盖。
+
+固定源码：Resources/character.gd、Modules/Character/event_character.gd、subsystem_portraits.gd、subsystem_containers.gd、DefaultAnimations/、Modules/HighlightPortrait/、Modules/LayeredPortrait/。2026-10-25 核对网页与指定源码；网页存在跨版本差异时使用固定源码，例如 fade_length、ignore_char_scale 及原生动画命名。PAGE 未修改这些插件代码或资源。
+
+## 0.3.0 场景身份与清理核对补记
+
+2026-10-25 核对 [Godot TSCN 格式](https://docs.godotengine.org/en/stable/engine_details/file_formats/tscn.html)、[Godot UID 说明](https://godotengine.org/article/uid-changes-coming-to-godot-4-4/)、[Dialogic 分层立绘](https://docs.dialogic.pro/layered-portraits.html) 与 [CharacterEvent](https://docs.dialogic.pro/classes/class_dialogiccharacterevent.html)。文档描述通用结构；兼容判定以指定 4.7.1 原生 ResourceSaver 输出和 Alpha 20 源码、实际双向测试为准。
+
+原生保存产生的节点 `unique_id`、场景及外部资源 `uid` 在编辑后保留；预览按内容根中的显式路径校验资源，不借用应用 UID 注册表解析目标图片。Alpha 20 的 `paused=false` setter 即使原来未暂停也会调用子系统 `_resume`；PAGE 关闭时先停止并释放本次动画节点，清空原生状态后才在必要时恢复暂停状态。原插件文件未修改。
