@@ -26,3 +26,5 @@
 ## nested_story
 
 本版嵌套条件、赋值、条件文本组合示例。复制并选为 Content Folder；ready 设 true/false，score 设 12/7/2，保存后重启比较所有路线。
+
+- `flow_story/`：条件选项、嵌套分支、角色与跨时间线 Jump / Return。

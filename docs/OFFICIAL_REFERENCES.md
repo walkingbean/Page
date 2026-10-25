@@ -1,4 +1,4 @@
-# PAGE Editor 0.1.0 官方资料
+# PAGE Editor 0.2.0 官方资料
 
 本版兼容目标固定为 Godot 4.7.1 / Dialogic 2.0-alpha-20。开发细节对照指定版本源码；在线文档用于补充与核对，不自动改变兼容目标。
 
@@ -66,3 +66,14 @@
 - Modules/Core/event_end_branch.gd：嵌套分支跳出与 elif/else 跳过。参考工程双向比对用于验证实际行为。
 
 官方在线文档可能已更新；交付与比对固定于资料库提供的 Godot 4.7.1 / Dialogic 2.0-alpha-20 源码，不用新版语法替换固定版本。
+
+## 0.2.0 选项与流程核对（2026-10-25）
+
+- [Dialogic Jump、Label、Return](https://docs.dialogic.pro/jump-event.html)：无目标 Jump 重启当前时间线，Jump/Return 使用调用栈。
+- [Dialogic 原生时间线语法](https://docs.dialogic.pro/timeline-text-syntax.html)：选项缩进、条件及跨时间线标识。
+- [Dialogic Choices 子系统](https://docs.dialogic.pro/classes/subsystem_choices.html)：条件隐藏、禁用、显示按钮、选择和无有效选项的处理。
+- [Godot 导出工程](https://docs.godotengine.org/en/stable/tutorials/export/exporting_projects.html)：导出模板、导出预设、命令行导出与资源包含/排除。
+
+具体以固定源码 Modules/Choice/event_choice.gd、subsystem_choices.gd、node_choice_button.gd、Modules/Jump/event_jump.gd、event_label.gd、event_return.gd、subsystem_jump.gd、Modules/End/event_end.gd、Core/DialogicGameHandler.gd、DialogicResourceUtil.gd 和 Resources/timeline.gd 为准。
+
+核对重点：Choice 额外参数保留字符串值；else 的默认行为由内容工程配置提供；全不可选时采用原生 AUTO_SKIP。Jump 固定时间线资源，标签在执行时可展开变量；重复标签选择第一个；Return 恢复跳转之后，空栈结束。原生事件 deferred 执行，因此应用的运行错误检查置于事件派发之前。解析先分配完整资源图再设置引用，可保留合法循环。原生事件、资源和子系统文件保持未修改。

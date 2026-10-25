@@ -1,5 +1,7 @@
 extends PanelContainer
 
+signal choice_requested
+signal flow_requested(kind: String)
 signal inline_requested
 signal condition_requested
 signal variable_requested
@@ -8,6 +10,7 @@ signal comment_requested
 signal character_event_requested(source: String)
 
 const BUTTON_SCENE: PackedScene = preload("res://ui/components/event_palette_button.tscn")
+var flow_buttons: Array[Button] = []
 var inline_button: Button
 var condition_button: Button
 var variable_button: Button
@@ -101,6 +104,19 @@ func _ready() -> void:
 	sections.add_child(inline_button)
 	sections.move_child(inline_button, condition_button.get_index() + 1)
 	inline_button.pressed.connect(func(): inline_requested.emit())
+	var choice_button: Button = sections.get_node("Choice")
+	choice_button.tooltip_text = "Insert or edit a Choice and its native properties"
+	choice_button.pressed.connect(func(): choice_requested.emit())
+	flow_buttons.append(choice_button)
+	for kind: String in ["Label", "Jump", "Return", "End"]:
+		var button: Button = BUTTON_SCENE.instantiate()
+		button.name = kind
+		button.text = kind
+		button.set(&"accent_color", Color(0.7, 0.6, 0.85))
+		button.pressed.connect(func(): flow_requested.emit(kind))
+		sections.add_child(button)
+		sections.move_child(button, choice_button.get_index() + flow_buttons.size())
+		flow_buttons.append(button)
 	var note := Label.new()
 	note.text = "Text, # comments and basic\ncharacter join / leave.\nChoose a content folder\nto use saved characters."
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -128,6 +144,8 @@ func set_characters(identifiers: Array[String]) -> void:
 
 func set_editable(enabled: bool) -> void:
 	_editable = enabled
+	for button: Button in flow_buttons:
+		button.disabled = not enabled
 	if is_instance_valid(inline_button):
 		inline_button.disabled = not enabled
 	if is_instance_valid(condition_button):

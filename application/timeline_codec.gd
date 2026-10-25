@@ -12,6 +12,8 @@ const MAX_SOURCE_BYTES: int = 4 * 1024 * 1024
 const ASSIGNMENT = preload("res://application/variable_assignment.gd")
 const CONDITIONS = preload("res://application/condition_source.gd")
 const INLINE = preload("res://application/conditional_text.gd")
+const FLOW = preload("res://application/flow_source.gd")
+const GRAPH = preload("res://application/flow_graph.gd")
 const VARIABLES = preload("res://application/text_variables.gd")
 
 
@@ -19,18 +21,30 @@ static func normalize_source(source: String) -> String:
 	return source.trim_prefix(String.chr(0xFEFF)).replace("\r\n", "\n").replace("\r", "\n")
 
 
-static func validate_content(source: String, workspace: RefCounted = null) -> Dictionary:
-	var result: Dictionary = _validate(source, workspace)
+static func validate_content(source: String, workspace: RefCounted = null, source_path: String = "") -> Dictionary:
+	var result: Dictionary = _validate(source, workspace, source_path)
+	if result.get("_timeline") != null:
+		GRAPH.release(result._timeline)
 	result.erase("_timeline")
 	return result
 
 
-static func parse_supported(source: String, workspace: RefCounted = null) -> DialogicTimeline:
-	var result: Dictionary = _validate(source, workspace)
+static func parse_supported(source: String, workspace: RefCounted = null, source_path: String = "") -> DialogicTimeline:
+	var result: Dictionary = _validate(source, workspace, source_path)
 	return result.get("_timeline") if result["supported"] else null
 
 
-static func _validate(source: String, workspace: RefCounted) -> Dictionary:
+static func _validate(source: String, workspace: RefCounted, source_path: String = "") -> Dictionary:
+	var cache := DialogicResourceUtil.get_event_cache()
+	if source.to_utf8_buffer().size() > MAX_SOURCE_BYTES:
+		return _validate_local(source, workspace)
+	for record: Dictionary in CONDITIONS.scan(normalize_source(source), cache).records:
+		if FLOW.is_flow(record.event):
+			return GRAPH.compile(normalize_source(source), workspace, source_path, _validate_local)
+	return _validate_local(source, workspace)
+
+
+static func _validate_local(source: String, workspace: RefCounted, flow_mode: bool = false, shared_characters: Dictionary = {}) -> Dictionary:
 	var issues: Array[Dictionary] = []
 	var normalized: String = normalize_source(source)
 	var encoded: PackedByteArray = normalized.to_utf8_buffer()
@@ -76,19 +90,19 @@ static func _validate(source: String, workspace: RefCounted) -> Dictionary:
 			if raw_event.begins_with("if "):
 				chains[depth] = {"matched": false, "active": false}
 			var state: Dictionary = chains.get(depth, {"matched": false, "active": false})
-			var condition: Dictionary = CONDITIONS.inspect_event(raw_event, runtime, parent_active and not state.matched)
+			var condition: Dictionary = CONDITIONS.inspect_event(raw_event, runtime, not flow_mode and parent_active and not state.matched)
 			if condition.has("error"):
 				_add_raw_issue(issues, source_lines, source_columns, raw_event, condition.get("offset", 0), condition.error)
 				state.active = false
 				chains[depth] = state
 				continue
-			state.active = parent_active and not state.matched and condition.get("value", false)
+			state.active = parent_active and not flow_mode and not state.matched and condition.get("value", false)
 			state.matched = state.matched or state.active
 			chains[depth] = state
 			condition["line"] = first_line
 			expected_events.append(condition)
 			continue
-		active = parent_active
+		active = parent_active and not flow_mode
 		chains.erase(depth)
 		if event is DialogicCommentEvent:
 			comment_count += 1
@@ -117,8 +131,18 @@ static func _validate(source: String, workspace: RefCounted) -> Dictionary:
 			if active:
 				runtime[assignment.name] = assignment.value
 			continue
+		if FLOW.is_flow(event):
+			var flow := FLOW.inspect(raw_event, event, workspace, runtime, false)
+			if flow.has("error"):
+				_add_raw_issue(issues, source_lines, source_columns, raw_event, flow.get("offset", 0), flow.error)
+			else:
+				flow["line"] = first_line
+				expected_events.append(flow)
+				if event is DialogicChoiceEvent:
+					narration_count += 1
+			continue
 		if not event is DialogicTextEvent:
-			_add_issue(issues, first_line, 1, "%s is outside this version's Text, Comment, scalar Variable, nested Condition and basic Character scope." % event.event_name)
+			_add_issue(issues, first_line, 1, "%s is outside this version's Text, Comment, scalar Variable, nested Condition, Choice, Jump/Return/End and basic Character scope." % event.event_name)
 			continue
 		var text_event: DialogicTextEvent = event as DialogicTextEvent
 		var escape_offset: int = 1 if raw_event.begins_with("\\") else 0
@@ -164,7 +188,7 @@ static func _validate(source: String, workspace: RefCounted) -> Dictionary:
 	# Keep the actual objects together with the timeline for the runtime host.
 	# Engine metadata is the official resource directory's runtime cache. Set it
 	# directly here so validation never writes the editor's ProjectSettings.
-	var characters: Dictionary = workspace.runtime_characters() if workspace != null else {}
+	var characters: Dictionary = shared_characters if flow_mode else (workspace.runtime_characters() if workspace != null else {})
 	for expected: Dictionary in expected_events:
 		var identifier: String = expected.get("identifier", "")
 		if not identifier.is_empty() and not characters.get(identifier) is DialogicCharacter:
@@ -254,6 +278,8 @@ static func _reference_error(identifier: String, portrait: String, workspace: Re
 
 
 static func _parsed_mismatch(parsed: DialogicEvent, expected: Dictionary, characters: Dictionary) -> String:
+	if expected["kind"] in ["choice", "label", "jump", "return", "finish"]:
+		return FLOW.mismatch(parsed, expected)
 	if expected["kind"] == "end":
 		return "" if parsed is DialogicEndBranchEvent else "The official parser did not preserve the branch boundary."
 	if expected["kind"] == "condition":

@@ -1,4 +1,4 @@
-# PAGE Editor 0.1.0 构建与发布
+# PAGE Editor 0.2.0 构建与发布
 
 ## 构建条件
 
@@ -29,7 +29,7 @@ builds/windows/PAGE_Editor.exe
 builds/linux/PAGE_Editor.x86_64
 ```
 
-Windows 产品名和文件描述为 `PAGE Editor`，文件与产品数字版本为 `0.1.0.0`。应用版本为 `0.1.0`。修改集中配置或 SVG 后应重新导出程序，仅改压缩包名不会修改 EXE 内的产品资源。
+Windows 产品名和文件描述为 `PAGE Editor`，文件与产品数字版本为 `0.2.0.0`。应用版本为 `0.2.0`。修改集中配置或 SVG 后应重新导出程序，仅改压缩包名不会修改 EXE 内的产品资源。
 
 两个预设均将 PCK 嵌入可执行程序；不必在程序旁另放 PCK。程序未代码签名。构建需要匹配模板，使用发布包运行应用不需要安装 Godot。
 
@@ -47,9 +47,9 @@ python3 tools/package_release.py --output /absolute/path/to/deliverables
 
 | 文件 | 包内根目录或程序 |
 |---|---|
-| `PAGE_Editor_0.1.0_Source.zip` | `PAGE_Editor_v0.1.0/` |
-| `PAGE_Editor_0.1.0_Windows_x86_64.zip` | `PAGE_Editor_0.1.0_Windows_x86_64/PAGE_Editor.exe` |
-| `PAGE_Editor_0.1.0_Linux_x86_64.zip` | `PAGE_Editor_0.1.0_Linux_x86_64/PAGE_Editor.x86_64` |
+| `PAGE_Editor_0.2.0_Source.zip` | `PAGE_Editor_v0.2.0/` |
+| `PAGE_Editor_0.2.0_Windows_x86_64.zip` | `PAGE_Editor_0.2.0_Windows_x86_64/PAGE_Editor.exe` |
+| `PAGE_Editor_0.2.0_Linux_x86_64.zip` | `PAGE_Editor_0.2.0_Linux_x86_64/PAGE_Editor.x86_64` |
 
 打包工具先在临时目录准备完整三份构建交付文件，再以拒绝覆盖的方式写入交付目录；遇到已有文件、缺少程序或文档时明确失败。工具在控制台输出实际三份压缩包的大小与 SHA256；交付回答和 RECORD 保存这些信息；不把包哈希回写进包内文档，不计算自身循环哈希。
 
@@ -105,11 +105,11 @@ user_data_directory="dialogic-standalone-editor"
 | `app_icon_svg` | 应用图标与 Home 按钮图标 SVG，与横向 LOGO 分开配置；建议使用 256×256 方形画布 |
 | `user_data_directory` | 稳定的用户数据目录标识，字符限制同 `artifact_stem`；单纯调整显示名称时保持不变 |
 
-版本来自 **`VERSION.txt`**，本版内容为 `0.1.0`；平台数字版本同步为 `0.1.0.0`。
+版本来自 **`VERSION.txt`**，本版内容为 `0.2.0`；平台数字版本同步为 `0.2.0.0`。
 
 具体操作：
 
-1. 解压 Source，进入包含 `project.godot` 的 `PAGE_Editor_v0.1.0/`。打开 `config/branding.cfg`。
+1. 解压 Source，进入包含 `project.godot` 的 `PAGE_Editor_v0.2.0/`。打开 `config/branding.cfg`。
 2. 修改 `project_name` 和 `artifact_stem`。只调整显示名称时保持 `user_data_directory` 不变，避免改变用户数据位置。
 3. 替换 `asset/branding/page-logo.svg`，或把新 SVG 放到 `asset/branding/` 并更新 `logo_svg`。必须是真实 SVG XML；建议透明背景、适配深色主题、文字转为轮廓。文件不得超过 2 MiB，不可放在导出排除的 `docs/`、`tools/`、`examples/`、`tests/` 或 `builds/` 中。
 4. 如需修改应用图标，替换 `asset/branding/page-icon.svg` 或更新 `app_icon_svg`。横向 LOGO 与应用图标用途不同；替换一个不自动替换另一个。

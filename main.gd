@@ -566,7 +566,8 @@ func _refresh_chrome(message: String = "", validation: Dictionary = {}) -> void:
 			message = "Read-only: " if document.read_only else "Cannot save or preview: "
 			message += str(diagnostics[0])
 		else:
-			message = "%d text · %d comment(s) · %d character event(s) | %s" % [validation.get("event_count", 0), validation.get("comment_count", 0), validation.get("character_event_count", 0), "Unsaved" if document.dirty else "Ready"]
+			var counts: Dictionary = validation.get("document_counts", validation)
+			message = "%d text · %d comment(s) · %d character event(s) | %s" % [counts.get("event_count", 0), counts.get("comment_count", 0), counts.get("character_event_count", 0), "Unsaved" if document.dirty else "Ready"]
 	editor.set_document_state(_document_title(), document.read_only, message)
 	editor.set_diagnostics(validation.get("issues", []))
 	sidebar.set_document(document.path, document.path.get_file() if not document.path.is_empty() else "Untitled.dtl", document.dirty, "timeline")
@@ -724,7 +725,7 @@ func _begin_timeline_preview() -> void:
 	if int(validation.get("event_count", 0)) == 0:
 		_show_error("Add a text line before starting preview.")
 		return
-	var result: Error = await preview_window.start_preview(document.content, workspace)
+	var result: Error = await preview_window.start_preview(document.content, workspace, document.path)
 	if result != OK:
 		_show_error("Dialogic preview could not start (error %d)." % result)
 		return

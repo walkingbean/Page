@@ -91,7 +91,7 @@ def package_platform(target, platform, label, extension, name, stem, version, ex
     readme = (
         f"# {name} {version} — {label} x86_64\n\n{launch}\n\n"
         "程序包含运行资源，无需安装或打开 Godot 编辑器。需要图形桌面和兼容的图形驱动。\n\n"
-        "将 examples/nested_story 或 examples/character_story 复制到可写目录，"
+        "将 examples/flow_story、examples/nested_story 或 examples/character_story 复制到可写目录，"
         "在程序中选择该示例目录为 Content Folder，再打开其中的 .dtl。\n\n"
         "实际构建与测试状态、环境限制和未运行事项见 RELEASE_NOTES.md。"
         "测试清单见 docs/TESTCASES.md；Windows 实机验证按发布说明列明。\n\n"

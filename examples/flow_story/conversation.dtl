@@ -1,0 +1,13 @@
+# PAGE Editor 0.2.0 多路径流程示例
+join jane left
+jane: 初始分数：{score}。请选择路线。
+- 前往大厅 | [if {ready}] [else="disable" alt_text="尚未准备"]
+	set {route} = "大厅"
+	jump hallway/entry
+	jane: 已从大厅返回，分数：{score}。
+- 留在原地
+	set {route} = "原地"
+	jane: 暂时休息。
+jane: 当前路线：{route}。
+leave jane
+[end_timeline]

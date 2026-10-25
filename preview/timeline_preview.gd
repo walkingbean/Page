@@ -10,6 +10,7 @@ signal preview_ready
 signal preview_finished
 signal event_observed(info: Dictionary)
 signal text_observed(text: String)
+signal question_observed(info: Dictionary)
 signal _reset_completed
 
 const Codec = preload("res://application/timeline_codec.gd")
@@ -25,6 +26,14 @@ var displayed_characters: Array[Dictionary] = []
 var _handler: DialogicGameHandler
 var _layout: Node
 var _source := ""
+var _source_path := ""
+var _runtime_root: DialogicTimeline
+var _timeline_directory: Dictionary = {}
+var _had_timeline_directory := false
+var _choice_default := 0
+var _steps_without_input := 0
+var _input_surface: Control
+var _choice_canvas: CanvasLayer
 var _workspace: RefCounted
 var _runtime_characters: Dictionary = {}
 var _runtime_textures: Array[ImageTexture] = []
@@ -64,9 +73,10 @@ func _ready() -> void:
 	_handler.event_handled.connect(_on_event_handled)
 	_handler.Text.text_started.connect(_on_text_started)
 	_handler.timeline_ended.connect(_on_timeline_ended)
+	_handler.Choices.question_shown.connect(_on_question_shown)
 
 
-func start_preview(source: String, workspace: RefCounted = null) -> Error:
+func start_preview(source: String, workspace: RefCounted = null, source_path: String = "") -> Error:
 	last_error = ""
 	if not is_inside_tree() or _handler == null:
 		last_error = "The preview window is not attached to a Dialogic project."
@@ -76,21 +86,23 @@ func start_preview(source: String, workspace: RefCounted = null) -> Error:
 		if not variable_problem.is_empty():
 			last_error = variable_problem
 			return ERR_UNAVAILABLE
-	var validation: Dictionary = Codec.validate_content(source, workspace)
+	var validation: Dictionary = Codec.validate_content(source, workspace, source_path)
 	if not validation.get("supported", false):
 		last_error = "\n".join(validation.get("diagnostics", []))
 		return ERR_UNAVAILABLE
 	if int(validation.get("event_count", 0)) == 0:
 		last_error = "Add at least one dialogue or narration event before starting preview."
 		return ERR_INVALID_DATA
-	var timeline: DialogicTimeline = Codec.parse_supported(source, workspace)
+	var timeline: DialogicTimeline = Codec.parse_supported(source, workspace, source_path)
 	if timeline == null:
 		last_error = "Dialogic could not parse the supported timeline."
 		return ERR_PARSE_ERROR
 	var textures: Array[ImageTexture] = []
 	if not _prepare_portraits(timeline, workspace, _generation + 1, textures):
+		Codec.GRAPH.release(timeline)
 		return ERR_CANT_OPEN
 	_source = source
+	_source_path = source_path
 	_workspace = workspace
 	_generation += 1
 	_starting = true
@@ -118,24 +130,39 @@ func stop_preview() -> void:
 
 
 func advance() -> void:
-	if running and is_instance_valid(_handler):
+	if running and is_instance_valid(_handler) and _handler.current_state != _handler.States.AWAITING_CHOICE:
 		_handler.Inputs.handle_input()
 
 
 func restart() -> void:
 	if not _source.is_empty() and not _starting:
-		start_preview(_source, _workspace)
+		start_preview(_source, _workspace, _source_path)
 
 
 func _begin(timeline: DialogicTimeline, generation: int, textures: Array[ImageTexture]) -> void:
 	await _clear_runtime()
 	if generation != _generation or not is_inside_tree():
+		Codec.GRAPH.release(timeline)
+		for texture: ImageTexture in textures:
+			texture.resource_path = ""
 		return
 	# Register the exact instances referenced by the native parsed events. A
 	# second clone here would break Dialogic's identity-based identifier lookup.
 	_previous_directory = DialogicResourceUtil.get_directory("dch")
 	_runtime_characters = timeline.get_meta("preview_characters", {})
 	_runtime_textures = textures
+	_runtime_root = timeline
+	_had_timeline_directory = Engine.has_meta("dtl_directory")
+	_timeline_directory = Engine.get_meta("dtl_directory", {})
+	_choice_default = _handler.Choices.default_false_behaviour
+	if timeline.has_meta("flow_preview"):
+		var resources: Dictionary = timeline.get_meta("preview_timelines", {}).duplicate()
+		resources[timeline.get_meta("source_path")] = timeline
+		var directory := {}
+		for alias: String in timeline.get_meta("preview_timeline_aliases", {}):
+			directory[alias] = resources[timeline.get_meta("preview_timeline_aliases")[alias]]
+		Engine.set_meta("dtl_directory", directory)
+		_handler.Choices.default_false_behaviour = timeline.get_meta("preview_choice_default", 0)
 	DialogicResourceUtil.set_directory("dch", _runtime_characters)
 	_directory_active = true
 	# Loading under this Window keeps the upstream CanvasLayer in its viewport.
@@ -155,6 +182,8 @@ func _begin(timeline: DialogicTimeline, generation: int, textures: Array[ImageTe
 	# Keep the upstream layout and Latin face, adding a bundled CJK fallback.
 	_layout.set("global_font", PREVIEW_FONT)
 	_layout.apply_export_overrides()
+	if timeline.has_meta("flow_preview"):
+		_prepare_choice_controls(int(timeline.get_meta("preview_max_choices", 1)))
 	_starting = false
 	running = true
 	_advance_button.disabled = false
@@ -163,6 +192,9 @@ func _begin(timeline: DialogicTimeline, generation: int, textures: Array[ImageTe
 	# Full clear restores the application's defaults; replace them only in this
 	# runtime instance with an independent copy of the selected content root.
 	_handler.VAR.var_storage = timeline.get_meta("preview_variables", {}).duplicate(true)
+	_steps_without_input = 0
+	_input_surface.mouse_filter = Control.MOUSE_FILTER_STOP
+	_handler.set("preview_guard", _guard_event)
 	_handler.start_timeline(timeline)
 	preview_ready.emit()
 
@@ -229,6 +261,16 @@ func _prepare_portraits(timeline: DialogicTimeline, workspace: RefCounted, gener
 
 
 func _restore_resources() -> void:
+	if _runtime_root != null:
+		if _had_timeline_directory:
+			Engine.set_meta("dtl_directory", _timeline_directory)
+		else:
+			Engine.remove_meta("dtl_directory")
+		_handler.Choices.default_false_behaviour = _choice_default
+		_handler.set("preview_guard", Callable())
+		Codec.GRAPH.release(_runtime_root)
+		_runtime_root = null
+		_timeline_directory = {}
 	if _directory_active:
 		DialogicResourceUtil.set_directory("dch", _previous_directory)
 	_directory_active = false
@@ -242,6 +284,10 @@ func _restore_resources() -> void:
 
 
 func _discard_layout() -> void:
+	if is_instance_valid(_choice_canvas):
+		_choice_canvas.get_parent().remove_child(_choice_canvas)
+		_choice_canvas.queue_free()
+	_choice_canvas = null
 	if is_instance_valid(_layout):
 		# Text reveal sounds can still be playing when a preview is closed.
 		# Release their audio-server playback before freeing the layout.
@@ -267,7 +313,7 @@ func _on_window_input(event: InputEvent) -> void:
 	if key.keycode in [KEY_ESCAPE, KEY_F6]:
 		set_input_as_handled()
 		stop_preview()
-	elif key.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE]:
+	elif key.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE] and _handler.current_state != _handler.States.AWAITING_CHOICE:
 		set_input_as_handled()
 		advance()
 
@@ -287,6 +333,7 @@ func _on_event_handled(event: DialogicEvent) -> void:
 		"script": event.get_script().resource_path,
 		"source": event.event_node_as_text,
 	}
+	info["timeline"] = _handler.current_timeline.get_meta("source_path", "") if _handler.current_timeline != null else ""
 	trace.append(info)
 	event_observed.emit(info)
 
@@ -294,6 +341,9 @@ func _on_event_handled(event: DialogicEvent) -> void:
 func _on_text_started(info: Dictionary) -> void:
 	if not running:
 		return
+	_steps_without_input = 0
+	_input_surface.mouse_filter = Control.MOUSE_FILTER_STOP
+	_advance_button.disabled = false
 	var text := str(info.get("text", ""))
 	displayed_texts.append(text)
 	var character: DialogicCharacter = info.get("character")
@@ -326,8 +376,9 @@ func _build_chrome() -> void:
 	chrome.layer = 100
 	add_child(chrome)
 	# Route clicks once, without relying on Input's root-viewport action state.
-	# The supported linear preview does not need the underlying choice/history UI.
+	# Native choice controls receive input while a question is active.
 	var input_surface := Control.new()
+	_input_surface = input_surface
 	input_surface.name = "PreviewInputSurface"
 	input_surface.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	input_surface.offset_top = 58
@@ -383,3 +434,109 @@ func _exit_tree() -> void:
 		_handler.Inputs.stop_timers()
 		_handler.clear(DialogicGameHandler.ClearFlags.FULL_CLEAR)
 	_restore_resources()
+
+
+func _on_question_shown(info: Dictionary) -> void:
+	if not running:
+		return
+	_input_surface.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_advance_button.disabled = true
+	_status.text = "Choose an available option. Esc / F6 closes preview."
+	if not info.get("invalid", false):
+		_steps_without_input = 0
+	question_observed.emit(info)
+
+
+func _guard_event(timeline: DialogicTimeline, index: int) -> bool:
+	if not running:
+		return false
+	if not timeline.has_meta("flow_preview"):
+		return true
+	_steps_without_input += 1
+	var problem := ""
+	if _steps_without_input > 10000:
+		problem = "Preview stopped after 10000 events without user interaction. Check for a jump loop."
+	elif _handler.Jump.jump_stack.size() >= 1024 and timeline.events[index] is DialogicJumpEvent:
+		problem = "Preview jump stack exceeds 1024 calls. Check for recursion without Return."
+	else:
+		problem = _runtime_problem(timeline, index)
+	if problem.is_empty():
+		return true
+	var lines: Array = timeline.get_meta("source_lines", [])
+	var source_line: int = lines[index] if index < lines.size() else 0
+	last_error = "%s · line %d: %s" % [timeline.get_meta("source_path", "Current timeline"), source_line, problem]
+	_status.text = last_error
+	running = false
+	_starting = false
+	_advance_button.disabled = true
+	_restart_button.disabled = false
+	_input_surface.mouse_filter = Control.MOUSE_FILTER_STOP
+	_handler.Choices.hide_all_choices()
+	return false
+
+
+func _runtime_problem(timeline: DialogicTimeline, index: int) -> String:
+	var event: DialogicEvent = timeline.events[index]
+	var values: Dictionary = _handler.VAR.var_storage
+	var check := {}
+	if event is DialogicVariableEvent:
+		check = Codec.ASSIGNMENT.inspect_event(event.event_node_as_text, values, true)
+	elif event is DialogicConditionEvent:
+		check = Codec.CONDITIONS.inspect_event(event.event_node_as_text, values, true)
+	elif event is DialogicTextEvent:
+		check = Codec.INLINE.inspect(event.text, _workspace, values, true)
+	elif event is DialogicJumpEvent:
+		check = Codec.FLOW.inspect(event.event_node_as_text, event, _workspace, values, true)
+		if not check.has("error") and not check.expanded_label.is_empty():
+			var destination: DialogicTimeline = event.timeline if event.timeline != null else timeline
+			if not destination.get_meta("labels", {}).has(check.expanded_label):
+				check = {"error": "Label '%s' was not found in %s." % [check.expanded_label, destination.get_meta("source_path")]}
+	if check.has("error"):
+		return check.error
+	# A Text event can reveal its following question before the Choice event
+	# executes. Check every sibling option before either native entry point.
+	var first := index + 1 if event is DialogicTextEvent else index
+	if first < timeline.events.size() and timeline.events[first] is DialogicChoiceEvent:
+		var previous := _handler.current_event_idx
+		_handler.current_event_idx = first
+		var choices: Array = _handler.Choices.get_current_choice_indexes()
+		_handler.current_event_idx = previous
+		for choice_index: int in choices:
+			var option: DialogicEvent = timeline.events[choice_index]
+			check = Codec.FLOW.inspect(option.event_node_as_text, option, _workspace, values, true)
+			if check.has("error"):
+				return "Choice at line %d: %s" % [timeline.get_meta("source_lines")[choice_index], check.error]
+	return ""
+
+
+func _prepare_choice_controls(count: int) -> void:
+	var choice_theme: Theme
+	for node: Node in _layout.find_children("*", "Control", true, false):
+		if node.has_method("get_choices"):
+			choice_theme = node.theme
+			node.get_choices().hide()
+	_choice_canvas = CanvasLayer.new()
+	_choice_canvas.layer = 50
+	add_child(_choice_canvas)
+	var scroll := ScrollContainer.new()
+	scroll.name = "PreviewChoices"
+	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	scroll.offset_left = 70
+	scroll.offset_right = -70
+	scroll.offset_top = 90
+	scroll.offset_bottom = -160
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
+	_choice_canvas.add_child(scroll)
+	var choices := VBoxContainer.new()
+	choices.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	choices.add_theme_constant_override("separation", 10)
+	choices.theme = choice_theme
+	scroll.add_child(choices)
+	for index: int in count:
+		var button := DialogicNode_ChoiceButton.new()
+		button.name = "PreviewChoice%d" % (index + 1)
+		button.custom_minimum_size.y = 40
+		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		choices.add_child(button)

@@ -1,0 +1,13 @@
+不会显示的开头。
+label entry (大厅入口)
+jane: 大厅里有两件物品。
+- 查看书籍
+	if {score} >= 2:
+		set {score} = {score}+3
+		jane: 阅读后分数：{score}。
+	else:
+		jane: 暂时无法阅读。
+- 看看窗外
+	jane: 窗外很安静。
+return
+不会显示的结尾。

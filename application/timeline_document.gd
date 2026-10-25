@@ -17,6 +17,7 @@ var last_error: String = ""
 var last_backup_path: String = ""
 var workspace: RefCounted = null
 
+var _validation_path := ""
 var _original_content: String = ""
 var _original_bytes: PackedByteArray = PackedByteArray()
 var _expected_hash: String = ""
@@ -60,7 +61,9 @@ func open_file(file_path: String) -> Error:
 		return _fail(ERR_INVALID_DATA, "The document contains NUL bytes and was not opened.")
 	var decoded: String = payload.get_string_from_utf8()
 	var next_content: String = CODEC.normalize_source(decoded)
+	_validation_path = destination
 	var validation: Dictionary = validate_content(next_content)
+	_validation_path = ""
 	# Commit only after successful IO/decoding; failed open preserves the old session.
 	content = next_content
 	path = destination
@@ -93,7 +96,7 @@ func set_content(text: String, validate_now: bool = true) -> void:
 
 
 func validate_content(text: String) -> Dictionary:
-	return CODEC.validate_content(text, workspace)
+	return CODEC.validate_content(text, workspace, _validation_path if not _validation_path.is_empty() else path)
 
 
 func get_file_extension() -> String:
@@ -110,7 +113,9 @@ func save_file(file_path: String = "") -> Error:
 	var bytes: PackedByteArray = _encoded_content()
 	if bytes.size() > CODEC.MAX_SOURCE_BYTES:
 		return _fail(ERR_OUT_OF_MEMORY, "The saved file exceeds 4 MiB after preserving its BOM and line endings. Shorten the text before saving.")
+	_validation_path = target
 	var validation: Dictionary = validate_content(content)
+	_validation_path = ""
 	diagnostics.assign(validation["diagnostics"])
 	if not validation["supported"]:
 		return _fail(ERR_UNAVAILABLE, "The edited source contains unsupported features. Correct it before saving.")

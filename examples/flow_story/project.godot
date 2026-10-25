@@ -1,0 +1,6 @@
+config_version=5
+
+[dialogic]
+variables={"score": 2, "ready": true, "route": "未选择"}
+directories/dtl_directory={"conversation": "res://conversation.dtl", "hallway": "res://hallway.dtl"}
+choices/def_false_behaviour=0

@@ -40,6 +40,7 @@ static func scan(source: String, cache: Array) -> Dictionary:
 	var previous_indent := ""
 	var previous_opener := false
 	var chains: Dictionary = {}
+	var openers: Dictionary = {}
 	var previous_depth := 0
 	while index < lines.size():
 		var first_line := index + 1
@@ -73,14 +74,19 @@ static func scan(source: String, cache: Array) -> Dictionary:
 				issues.append({"line": first_line, "column": 1, "message": "Use Tab or a consistent unit of 1-32 spaces, without mixing or partial levels."})
 			depth = indent.length() / maxi(1, unit.length())
 			if depth > MAX_DEPTH:
-				issues.append({"line": first_line, "column": 1, "message": "Condition nesting exceeds 64 levels."})
+				issues.append({"line": first_line, "column": 1, "message": "Branch nesting exceeds 64 levels."})
 			if depth > previous_depth and (not previous_opener or depth != previous_depth + 1):
-				issues.append({"line": first_line, "column": 1, "message": "Indent by exactly one level after a condition header."})
-			if not chains.has(depth - 1):
-				issues.append({"line": first_line, "column": 1, "message": "Indented content requires a preceding condition at the parent level."})
+				issues.append({"line": first_line, "column": 1, "message": "Indent by exactly one level after a condition or choice header."})
+			if not openers.has(depth - 1):
+				issues.append({"line": first_line, "column": 1, "message": "Indented content requires a preceding condition or choice at the parent level."})
 		for level: int in chains.keys():
 			if level > depth:
 				chains.erase(level)
+		for level: int in openers.keys():
+			if level >= depth:
+				openers.erase(level)
+		if event.can_contain_events:
+			openers[depth] = true
 		if condition:
 			var header := inspect_event(raw)
 			if header.has("error"):
