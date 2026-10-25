@@ -1,0 +1,13 @@
+# 修改保存的 score 和 ready 后，重启预览观察不同路径。
+初始分数：{score}。
+if {ready}:
+	if {score} >= 10:
+		set {route} = "高分"
+	elif {score} >= 5:
+		set {route} = "普通"
+	else:
+		set {route} = "开始"
+	路线：{route}。[if {{score} >= 10} 达成目标。/继续积累。]
+else:
+	尚未准备。
+结束。[if {ready} 可以继续。/请先准备。]

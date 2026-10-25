@@ -1,5 +1,6 @@
 extends PanelContainer
 
+signal inline_requested
 signal condition_requested
 signal variable_requested
 signal text_requested
@@ -7,6 +8,7 @@ signal comment_requested
 signal character_event_requested(source: String)
 
 const BUTTON_SCENE: PackedScene = preload("res://ui/components/event_palette_button.tscn")
+var inline_button: Button
 var condition_button: Button
 var variable_button: Button
 var text_button: Button
@@ -89,8 +91,16 @@ func _ready() -> void:
 	condition_button.set(&"accent_color", Color(0.75, 0.55, 0.8))
 	sections.add_child(condition_button)
 	sections.move_child(condition_button, sections.get_node("FlowHeader").get_index() + 1)
-	condition_button.tooltip_text = "Insert or edit a single-level if / elif / else at the caret"
+	condition_button.tooltip_text = "Insert or edit a nested if / elif / else at the caret"
 	condition_button.pressed.connect(func(): condition_requested.emit())
+	inline_button = BUTTON_SCENE.instantiate() as Button
+	inline_button.name = "ConditionalText"
+	inline_button.text = "Conditional Text"
+	inline_button.set(&"accent_color", Color(0.75, 0.55, 0.8))
+	inline_button.tooltip_text = "Insert or edit native [if condition true/false] text at the caret"
+	sections.add_child(inline_button)
+	sections.move_child(inline_button, condition_button.get_index() + 1)
+	inline_button.pressed.connect(func(): inline_requested.emit())
 	var note := Label.new()
 	note.text = "Text, # comments and basic\ncharacter join / leave.\nChoose a content folder\nto use saved characters."
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -118,6 +128,8 @@ func set_characters(identifiers: Array[String]) -> void:
 
 func set_editable(enabled: bool) -> void:
 	_editable = enabled
+	if is_instance_valid(inline_button):
+		inline_button.disabled = not enabled
 	if is_instance_valid(condition_button):
 		condition_button.disabled = not enabled
 	if is_instance_valid(variable_button):

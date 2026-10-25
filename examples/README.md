@@ -1,4 +1,4 @@
-# PAGE Editor 0.0.5 示例
+# PAGE Editor 0.1.0 示例
 
 | 示例 | 打开方式 | 内容 |
 |---|---|---|
@@ -22,3 +22,7 @@
 ## condition_story
 
 0.0.5 单层条件、分支赋值和后续条件示例。复制目录并选为 Content Folder，打开 conversation.dtl；将 score 初值改为 12、7、2 可体验全部路线。
+
+## nested_story
+
+本版嵌套条件、赋值、条件文本组合示例。复制并选为 Content Folder；ready 设 true/false，score 设 12/7/2，保存后重启比较所有路线。

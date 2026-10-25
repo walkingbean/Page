@@ -89,6 +89,8 @@ static func text_scope(text: String) -> Dictionary:
 	var first: int = -1
 	for character: String in "[]":
 		var at: int = text.find(character)
+		while at > 0 and text[at - 1] == "\\":
+			at = text.find(character, at + 1)
 		if at >= 0 and (first < 0 or at < first):
 			first = at
 	if first >= 0:

@@ -9,10 +9,11 @@ var source_editor: CodeEdit
 var original_source := ""
 var source_line := 0
 var editing := false
+var prefix := ""
 
 
 func _ready() -> void:
-	title = "Condition · single-level branch"
+	title = "Condition · nested branch"
 	size = Vector2i(520, 430)
 	min_size = size
 	dialog_hide_on_ok = false
@@ -60,16 +61,14 @@ func open_for_editor(editor: CodeEdit) -> void:
 	source_line = editor.get_caret_line()
 	var line := editor.get_line(source_line)
 	var stripped := line.strip_edges(true, false)
+	prefix = line.left(line.length() - stripped.length())
 	editing = DialogicConditionEvent.new().is_valid_event(stripped)
 	kind.select(0)
 	expression.text = "true"
 	get_ok_button().disabled = false
 	message.text = "Insert a condition and a body before this line. elif/else must follow an if branch."
-	if line != stripped:
-		get_ok_button().disabled = true
-		message.text = "Place the caret on an unindented line. Nested conditions are planned for 0.1.0."
-	elif editing:
-		var model := Condition.inspect_event(line)
+	if editing:
+		var model := Condition.inspect_event(stripped)
 		if model.has("error"):
 			get_ok_button().disabled = true
 			expression.text = line
@@ -98,13 +97,14 @@ func _apply() -> void:
 		message.text = checked.error
 		return
 	var lines := original_source.split("\n", true)
+	header = prefix + header
 	var insertion := header
 	if editing:
 		lines[source_line] = header
 	else:
 		var structure := Condition.scan(original_source, DialogicResourceUtil.get_event_cache())
 		var indent: String = structure.indent if not structure.indent.is_empty() else "\t"
-		insertion += "\n" + indent + "New narration.\n"
+		insertion += "\n" + prefix + indent + "New narration.\n"
 		lines[source_line] = insertion + lines[source_line]
 	var structure := Condition.scan("\n".join(lines), DialogicResourceUtil.get_event_cache())
 	if not structure.issues.is_empty():

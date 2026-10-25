@@ -11,6 +11,7 @@ extends RefCounted
 const MAX_SOURCE_BYTES: int = 4 * 1024 * 1024
 const ASSIGNMENT = preload("res://application/variable_assignment.gd")
 const CONDITIONS = preload("res://application/condition_source.gd")
+const INLINE = preload("res://application/conditional_text.gd")
 const VARIABLES = preload("res://application/text_variables.gd")
 
 
@@ -50,7 +51,6 @@ static func _validate(source: String, workspace: RefCounted) -> Dictionary:
 	issues.assign(structure.issues)
 	if not issues.is_empty():
 		return _result(issues, 0, 0)
-	var random_text_regex := RegEx.create_from_string(r"(?<!\\)<[^>]+/[^>]*>")
 	var narration_count: int = 0
 	var comment_count: int = 0
 	var character_text_count: int = 0
@@ -58,7 +58,7 @@ static func _validate(source: String, workspace: RefCounted) -> Dictionary:
 	var expected_events: Array[Dictionary] = []
 	var runtime: Dictionary = workspace.variable_document.runtime_values() if workspace != null and workspace.variable_document != null else {}
 	var active := true
-	var matched := false
+	var chains: Dictionary = {}
 	for record: Dictionary in structure.records:
 		var first_line: int = record.line
 		var event: DialogicEvent = record.event
@@ -67,22 +67,29 @@ static func _validate(source: String, workspace: RefCounted) -> Dictionary:
 		var source_columns: Array[int] = record.source_columns
 		for ending: int in record.ends_before:
 			expected_events.append({"kind": "end", "line": first_line})
+		var depth: int = record.depth
+		for level: int in chains.keys():
+			if level > depth:
+				chains.erase(level)
+		var parent_active: bool = true if depth == 0 else chains.get(depth - 1, {}).get("active", false)
 		if event is DialogicConditionEvent:
 			if raw_event.begins_with("if "):
-				matched = false
-			var condition: Dictionary = CONDITIONS.inspect_event(raw_event, runtime, not matched)
+				chains[depth] = {"matched": false, "active": false}
+			var state: Dictionary = chains.get(depth, {"matched": false, "active": false})
+			var condition: Dictionary = CONDITIONS.inspect_event(raw_event, runtime, parent_active and not state.matched)
 			if condition.has("error"):
 				_add_raw_issue(issues, source_lines, source_columns, raw_event, condition.get("offset", 0), condition.error)
-				active = false
+				state.active = false
+				chains[depth] = state
 				continue
-			active = not matched and condition.get("value", false)
-			matched = matched or active
+			state.active = parent_active and not state.matched and condition.get("value", false)
+			state.matched = state.matched or state.active
+			chains[depth] = state
 			condition["line"] = first_line
 			expected_events.append(condition)
 			continue
-		if record.indent.is_empty():
-			active = true
-			matched = false
+		active = parent_active
+		chains.erase(depth)
 		if event is DialogicCommentEvent:
 			comment_count += 1
 			expected_events.append({"kind": "comment", "line": first_line})
@@ -111,7 +118,7 @@ static func _validate(source: String, workspace: RefCounted) -> Dictionary:
 				runtime[assignment.name] = assignment.value
 			continue
 		if not event is DialogicTextEvent:
-			_add_issue(issues, first_line, 1, "%s is outside this version's Text, Comment, scalar Variable, single-level Condition and basic Character scope." % event.event_name)
+			_add_issue(issues, first_line, 1, "%s is outside this version's Text, Comment, scalar Variable, nested Condition and basic Character scope." % event.event_name)
 			continue
 		var text_event: DialogicTextEvent = event as DialogicTextEvent
 		var escape_offset: int = 1 if raw_event.begins_with("\\") else 0
@@ -134,24 +141,12 @@ static func _validate(source: String, workspace: RefCounted) -> Dictionary:
 		# removes a second prefix from the trimmed Text body. Validate exactly
 		# what its variable parser receives, not an earlier escaped form.
 		var native_body: String = _native_text_body(body)
-		# Conservative scope, not a replacement for Dialogic's grammar. Report
-		# the actual physical source position without evaluating expressions.
-		var position: int = _first_of(body, "[]")
-		if position >= 0:
-			_add_raw_issue(issues, source_lines, source_columns, raw_event, body_offset + position,
-				"BBCode, inline effects and text modifiers require a later version.")
-			continue
-		var random_match: RegExMatch = random_text_regex.search(VARIABLES.mask_expressions(body))
-		if random_match != null:
-			_add_raw_issue(issues, source_lines, source_columns, raw_event, body_offset + random_match.get_start(),
-				"random text selection requires a later version.")
-			continue
-		var variable_result: Dictionary = VARIABLES.inspect(native_body, workspace, runtime, active)
+		var variable_result: Dictionary = INLINE.inspect(native_body, workspace, runtime, active)
 		if variable_result.has("error"):
 			var raw_offset: int = _native_body_source_offset(body, int(variable_result.get("offset", 0)))
 			_add_raw_issue(issues, source_lines, source_columns, raw_event, body_offset + raw_offset, variable_result["error"])
 			continue
-		position = raw_event.find("#id:")
+		var position: int = raw_event.find("#id:")
 		if position >= 0:
 			_add_raw_issue(issues, source_lines, source_columns, raw_event, position,
 				"translation metadata requires a later version.")

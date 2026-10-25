@@ -1,8 +1,9 @@
 class_name ConditionSource
 extends RefCounted
 
-## Single-level structure preflight. Native Dialogic owns parsing and execution.
+## Nested structure preflight. Native Dialogic owns parsing and execution.
 const MAX_INDENT_SPACES := 32
+const MAX_DEPTH := 64
 const Scalar = preload("res://application/scalar_expression.gd")
 
 
@@ -38,8 +39,8 @@ static func scan(source: String, cache: Array) -> Dictionary:
 	var unit := ""
 	var previous_indent := ""
 	var previous_opener := false
-	var chain_open := false
-	var else_seen := false
+	var chains: Dictionary = {}
+	var previous_depth := 0
 	while index < lines.size():
 		var first_line := index + 1
 		var line := lines[index]
@@ -64,42 +65,46 @@ static func scan(source: String, cache: Array) -> Dictionary:
 			source_lines.append(index)
 			source_columns.append(prefix.length() + 1)
 		var condition := event is DialogicConditionEvent
+		var depth := 0
 		if not indent.is_empty():
-			if condition:
-				issues.append({"line": first_line, "column": indent.length() + 1, "message": "Nested conditions require version 0.1.0. Put single-level condition headers at the left margin."})
-			if not chain_open:
-				issues.append({"line": first_line, "column": 1, "message": "Indented content requires a preceding if, elif or else branch."})
-			if indent != "\t" and (indent.length() > MAX_INDENT_SPACES or indent.strip_edges() != "" or indent.contains("\t") or indent.replace(" ", "") != ""):
-				issues.append({"line": first_line, "column": 1, "message": "Use one Tab or a consistent width of 1-32 spaces for single-level branch content."})
 			if unit.is_empty():
-				unit = indent
-			elif unit != indent:
-				issues.append({"line": first_line, "column": 1, "message": "All branch bodies must use the same single indentation level."})
-		elif condition:
+				unit = "\t" if indent.begins_with("\t") else indent
+			if (unit != "\t" and (unit.length() > MAX_INDENT_SPACES or unit.replace(" ", "") != "")) or indent != unit.repeat(indent.length() / maxi(1, unit.length())):
+				issues.append({"line": first_line, "column": 1, "message": "Use Tab or a consistent unit of 1-32 spaces, without mixing or partial levels."})
+			depth = indent.length() / maxi(1, unit.length())
+			if depth > MAX_DEPTH:
+				issues.append({"line": first_line, "column": 1, "message": "Condition nesting exceeds 64 levels."})
+			if depth > previous_depth and (not previous_opener or depth != previous_depth + 1):
+				issues.append({"line": first_line, "column": 1, "message": "Indent by exactly one level after a condition header."})
+			if not chains.has(depth - 1):
+				issues.append({"line": first_line, "column": 1, "message": "Indented content requires a preceding condition at the parent level."})
+		for level: int in chains.keys():
+			if level > depth:
+				chains.erase(level)
+		if condition:
 			var header := inspect_event(raw)
 			if header.has("error"):
-				issues.append({"line": first_line, "column": 1 + int(header.get("offset", 0)), "message": header.error})
+				issues.append({"line": first_line, "column": indent.length() + 1 + int(header.get("offset", 0)), "message": header.error})
+			elif header.condition_type == DialogicConditionEvent.ConditionTypes.IF:
+				chains[depth] = false
 			else:
-				if header.condition_type == DialogicConditionEvent.ConditionTypes.IF:
-					chain_open = true
-					else_seen = false
-				elif not chain_open or else_seen:
-					issues.append({"line": first_line, "column": 1, "message": "elif/else must immediately follow the preceding branch of an if chain; else must be last."})
+				if not chains.has(depth) or chains.get(depth, false):
+					issues.append({"line": first_line, "column": indent.length() + 1, "message": "elif/else must follow an if chain at the same level; else must be last."})
 				if header.condition_type == DialogicConditionEvent.ConditionTypes.ELSE:
-					else_seen = true
+					chains[depth] = true
 		else:
-			chain_open = false
-			else_seen = false
+			chains.erase(depth)
 		# Reproduce the upstream parser's implicit end events, including empty
 		# branches. Explicit <<END BRANCH>> remains outside authored .dtl syntax.
 		var ends := 0
-		if not previous_indent.is_empty() and indent.is_empty():
-			ends += 1
+		if indent.length() < previous_indent.length():
+			ends += previous_depth - depth
 		if previous_opener and indent.length() <= previous_indent.length():
 			ends += 1
 		records.append({"event": event, "raw": raw, "line": first_line, "indent": indent,
-			"source_lines": source_lines, "source_columns": source_columns, "ends_before": ends})
+			"source_lines": source_lines, "source_columns": source_columns, "ends_before": ends, "depth": depth})
 		previous_indent = indent
+		previous_depth = depth
 		previous_opener = event.can_contain_events
 	# Alpha 20 closes EOF indentation by character count, even for spaces.
 	# Keep this native quirk visible to comparison; never rewrite the plugin.

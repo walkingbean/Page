@@ -1,0 +1,4 @@
+config_version=5
+
+[dialogic]
+variables={"score": 12, "ready": true, "route": "未选择"}

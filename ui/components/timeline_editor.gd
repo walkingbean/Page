@@ -19,6 +19,7 @@ signal content_changed(text: String)
 @onready var create_timeline_button: Button = %CreateTimelineButton
 @onready var title_label: Label = $Header/HeaderMargin/HeaderRow/TimelineName
 
+var inline_form: ConfirmationDialog
 var condition_form: ConfirmationDialog
 var variable_form: ConfirmationDialog
 var source_editor: CodeEdit
@@ -63,6 +64,10 @@ func _ready() -> void:
 	condition_form.name = "ConditionEventEditor"
 	add_child(condition_form)
 	event_palette.connect(&"condition_requested", func(): condition_form.open_for_editor(source_editor))
+	inline_form = preload("res://ui/components/conditional_text_editor.gd").new()
+	inline_form.name = "ConditionalTextEditor"
+	add_child(inline_form)
+	event_palette.connect(&"inline_requested", func(): inline_form.open_for_editor(source_editor))
 	_refresh_view_state()
 
 

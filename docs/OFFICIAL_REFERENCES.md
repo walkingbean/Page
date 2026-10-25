@@ -1,4 +1,4 @@
-# PAGE Editor 0.0.5 官方资料
+# PAGE Editor 0.1.0 官方资料
 
 本版兼容目标固定为 Godot 4.7.1 / Dialogic 2.0-alpha-20。开发细节对照指定版本源码；在线文档用于补充与核对，不自动改变兼容目标。
 
@@ -52,3 +52,17 @@
 以资料库中固定版本源码为准，核对 Modules/Condition/event_condition.gd、Modules/Core/event_end_branch.gd、Modules/Core/subsystem_expression.gd、Resources/timeline.gd 与 Resources/event.gd；引擎核对 core/math/expression.cpp 和 Variant 真值规则。在线文档不保证描述 Alpha 20 的全部边界，实际验证使用指定原生参考工程。
 
 重点差异：条件直接 execute_string，不使用 VAR 的裸名直查；未命中分支跳至内部 EndBranch；匹配后其余兄弟分支跳过；空分支与文件结尾的 EndBranch 生成以原生 parser 实际结果为准。Alpha 20 在空格缩进 EOF 按字符数补 EndBranch。本版对照原生事件顺序和真实播放，不修改插件实现。
+
+
+## 0.1.0 嵌套条件与条件文本核对（2026-10-25）
+
+- https://docs.dialogic.pro/timeline-text-syntax.html ：原生 if / elif / else 与缩进；本版以固定 Alpha 20 的 timeline.gd 实际解析为准。
+- https://docs.dialogic.pro/text-modifiers.html ：条件文本 `[if {Expression} 真文本/假文本]` 与可省略假文本。
+- https://docs.dialogic.pro/variables.html ：变量、表达式、条件引用；本版仅实现已声明的标量范围。
+- https://docs.godotengine.org/en/stable/classes/class_expression.html ：Expression.parse/execute 和错误读取。
+- addons/dialogic/Resources/timeline.gd：缩进回退和空分支生成 EndBranch，EOF 按缩进字符数补齐；没有改动该原生行为。
+- Modules/Core/subsystem_expression.gd：原始正则匹配列表、全局替换、strip_edges 与空文本相邻空格处理。
+- Modules/Core/index.gd 与 Modules/Text/subsystem_text.gd：条件修饰符 order 20，变量 order 30。未选择分支不进行变量插值；条件表达式本身仍按匹配列表逐一求值。
+- Modules/Core/event_end_branch.gd：嵌套分支跳出与 elif/else 跳过。参考工程双向比对用于验证实际行为。
+
+官方在线文档可能已更新；交付与比对固定于资料库提供的 Godot 4.7.1 / Dialogic 2.0-alpha-20 源码，不用新版语法替换固定版本。
