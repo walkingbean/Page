@@ -1,0 +1,41 @@
+{
+"@path": "res://addons/dialogic/Resources/character.gd",
+"@subpath": NodePath(""),
+&"_translation_id": "",
+&"color": Color(1, 0.84313726, 0, 1),
+&"custom_info": {
+"chapter": 1,
+"style": "Cool",
+"prefix": "[b]",
+"suffix": "[/b]",
+"demo": true
+},
+&"default_portrait": "idle",
+&"description": "PAGE Editor 0.4.0 text and style demonstration
+原生角色与立绘示例",
+&"display_name": "Antonio",
+&"mirror": false,
+&"nicknames": ["antonio", "角色Antonio"],
+&"offset": Vector2(0, 0),
+&"portraits": {
+"close": {
+"export_overrides": {
+"image": "\"res://portraits/antonio.png\""
+},
+"mirror": false,
+"offset": Vector2(0, 15),
+"scale": 1.15,
+"scene": "res://addons/dialogic/Modules/HighlightPortrait/simple_highlight_portrait.tscn"
+},
+"idle": {
+"export_overrides": {
+"image": "\"res://portraits/antonio.png\""
+},
+"mirror": false,
+"offset": Vector2(0, 0),
+"scale": 1.0,
+"scene": "res://addons/dialogic/Modules/HighlightPortrait/simple_highlight_portrait.tscn"
+}
+},
+&"scale": 1.0
+}

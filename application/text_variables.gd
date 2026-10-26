@@ -86,19 +86,7 @@ static func mask_expressions(text: String) -> String:
 
 
 static func text_scope(text: String) -> Dictionary:
-	var first: int = -1
-	for character: String in "[]":
-		var at: int = text.find(character)
-		while at > 0 and text[at - 1] == "\\":
-			at = text.find(character, at + 1)
-		if at >= 0 and (first < 0 or at < first):
-			first = at
-	if first >= 0:
-		return _issue(first, "BBCode, inline effects and text modifiers require a later version.")
-	var random_match: RegExMatch = RegEx.create_from_string(r"(?<!\\)<[^>]+/[^>]*>").search(text)
-	if random_match != null:
-		return _issue(random_match.get_start(), "Random text selection requires a later version.")
-	return {}
+	return preload("res://application/text_presentation.gd").inspect(text)
 
 
 static func _issue(offset: int, message: String) -> Dictionary:

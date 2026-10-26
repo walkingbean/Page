@@ -1,4 +1,4 @@
-# PAGE Editor 0.3.0 构建与发布
+# PAGE Editor 0.4.0 构建与发布
 
 ## 构建条件
 
@@ -31,7 +31,7 @@ builds/windows/PAGE_Editor.exe
 builds/linux/PAGE_Editor.x86_64
 ```
 
-Windows 产品名和文件描述为 `PAGE Editor`，文件与产品数字版本为 `0.3.0.0`。应用版本为 `0.3.0`。修改集中配置或 SVG 后应重新导出程序，仅改压缩包名不会修改 EXE 内的产品资源。
+Windows 产品名和文件描述为 `PAGE Editor`，文件与产品数字版本为 `0.4.0.0`。应用版本为 `0.4.0`。修改集中配置或 SVG 后应重新导出程序，仅改压缩包名不会修改 EXE 内的产品资源。
 
 两个预设均将 PCK 嵌入可执行程序；不必在程序旁另放 PCK。程序未代码签名。构建需要匹配模板，使用发布包运行应用不需要安装 Godot。
 
@@ -49,9 +49,9 @@ python3 tools/package_release.py --output /absolute/path/to/deliverables
 
 | 文件 | 包内根目录或程序 |
 |---|---|
-| `PAGE_Editor_0.3.0_Source.zip` | `PAGE_Editor_v0.3.0/` |
-| `PAGE_Editor_0.3.0_Windows_x86_64.zip` | `PAGE_Editor_0.3.0_Windows_x86_64/PAGE_Editor.exe` |
-| `PAGE_Editor_0.3.0_Linux_x86_64.zip` | `PAGE_Editor_0.3.0_Linux_x86_64/PAGE_Editor.x86_64` |
+| `PAGE_Editor_0.4.0_Source.zip` | `PAGE_Editor_v0.4.0/` |
+| `PAGE_Editor_0.4.0_Windows_x86_64.zip` | `PAGE_Editor_0.4.0_Windows_x86_64/PAGE_Editor.exe` |
+| `PAGE_Editor_0.4.0_Linux_x86_64.zip` | `PAGE_Editor_0.4.0_Linux_x86_64/PAGE_Editor.x86_64` |
 
 打包工具先在临时目录准备完整三份构建交付文件，再以拒绝覆盖的方式写入交付目录；遇到已有文件、缺少程序或文档时明确失败。工具在控制台输出实际三份压缩包的大小与 SHA256；交付回答和 RECORD 保存这些信息；不把包哈希回写进包内文档，不计算自身循环哈希。
 
@@ -86,7 +86,7 @@ Source 包不包含 `.godot`、构建输出、测试执行数据、恢复进度�
 
 0.3.0 执行 608 再次在全新 NotoSansCJK 字体导入阶段出现 `propagate_notification()` 线程错误和 signal 11，进程返回 -6。执行 609 使用同一 Source 候选的另一份全新解压副本，重新完成导入、品牌同步、双平台导出、打包及实际 Linux 界面检查，全部通过。两次记录均保留；成功重跑不表示该引擎导入异常的根因已确认或修复。
 
-执行 622 的另一项独立构建在同一字体导入阶段记录到 `Variant::VARIANT_MAX` 越界错误，导入断言失败；该旧驱动未记录导入子进程退出码，不能据此声称具体退出信号。修正驱动的退出码记录和失败后停止逻辑后，执行 623、624 分别从全新副本完成完整导入、双平台构建、打包及交付程序检查，均通过。此前成功的 15 次发布驱动导入也补查了正常退出和无 ERROR 行。原失败记录完整保留，未将失败导入后生成的诊断产物用于正式交付。
+0.3.0 执行 622 的另一项独立构建在同一字体导入阶段记录到 `Variant::VARIANT_MAX` 越界错误，导入断言失败；该旧驱动未记录导入子进程退出码，不能据此声称具体退出信号。修正驱动的退出码记录和失败后停止逻辑后，执行 623、624 分别从全新副本完成完整导入、双平台构建、打包及交付程序检查，均通过。此前成功的 15 次发布驱动导入也补查了正常退出和无 ERROR 行。原失败记录完整保留，未将失败导入后生成的诊断产物用于正式交付。
 
 固定版本引擎此前曾在干净副本资源导入时异常退出。应检查导入退出码和完整日志；若失败，保留日志并从新解压副本重新执行导入和后续完整验证。成功重试不代表引擎层根因已修复。本版实际结果以独立进度包为准。
 
@@ -111,11 +111,11 @@ user_data_directory="dialogic-standalone-editor"
 | `app_icon_svg` | 应用图标与 Home 按钮图标 SVG，与横向 LOGO 分开配置；建议使用 256×256 方形画布 |
 | `user_data_directory` | 稳定的用户数据目录标识，字符限制同 `artifact_stem`；单纯调整显示名称时保持不变 |
 
-版本来自 **`VERSION.txt`**，本版内容为 `0.3.0`；平台数字版本同步为 `0.3.0.0`。
+版本来自 **`VERSION.txt`**，本版内容为 `0.4.0`；平台数字版本同步为 `0.4.0.0`。
 
 具体操作：
 
-1. 解压 Source，进入包含 `project.godot` 的 `PAGE_Editor_v0.3.0/`。打开 `config/branding.cfg`。
+1. 解压 Source，进入包含 `project.godot` 的 `PAGE_Editor_v0.4.0/`。打开 `config/branding.cfg`。
 2. 修改 `project_name` 和 `artifact_stem`。只调整显示名称时保持 `user_data_directory` 不变，避免改变用户数据位置。
 3. 替换 `asset/branding/page-logo.svg`，或把新 SVG 放到 `asset/branding/` 并更新 `logo_svg`。必须是真实 SVG XML；建议透明背景、适配深色主题、文字转为轮廓。文件不得超过 2 MiB，不可放在导出排除的 `docs/`、`tools/`、`examples/`、`tests/` 或 `builds/` 中。
 4. 如需修改应用图标，替换 `asset/branding/page-icon.svg` 或更新 `app_icon_svg`。横向 LOGO 与应用图标用途不同；替换一个不自动替换另一个。
@@ -130,3 +130,7 @@ Godot 导出时会处理 SVG 纹理，程序支持源码 SVG 与导出纹理。�
 ## 测试文件交付位置
 
 完整用例保存在源码根 docs/TESTCASES.md，随 Source.zip 交付，不生成外部 Testcases.md。测试执行结果与恢复进度单独打包为 PAGE_Editor_<版本号>_Test_Progress.zip，在对话中直接提供并保存至项目资料库来源；不进入源代码或程序包。打包脚本只打包产品及文档，执行证据由测试流程独立封存。
+
+0.4.0 首次字体导入同样出现线程通知错误和 signal 11，原始日志保留。执行 442 从全新 Source 解压副本完成无错误导入、品牌同步、双平台导出与打包；该次实际导出的程序用于本版独立程序验收。后续文档和状态调整不改变程序字节，最终技术文件清单另行比对。此结果不等同于引擎异常根因已修复。
+
+0.4.0 执行 608 的独立品牌检查在全新字体导入阶段以 signal 11（-11）退出，未继续后续构建。执行 609 从另一份全新副本完整重跑通过；这仍是根因未确认的导入异常。

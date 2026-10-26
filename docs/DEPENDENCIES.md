@@ -1,4 +1,4 @@
-# PAGE Editor 0.3.0 依赖与许可
+# PAGE Editor 0.4.0 依赖与许可
 
 | 依赖 | 版本或来源 | 用途 | 许可 |
 |---|---|---|---|
@@ -22,3 +22,5 @@ Godot 引擎二进制和导出模板不包含在 Source 压缩包中。实际使
 Godot 导入会为随包 `.import` 文件补充当前引擎的默认字段；这类自动生成的导入元数据单独记录。Dialogic 原始脚本、场景和资源内容保持原字节。
 
 0.3.0 在 0.2.0 正式 Source 基础上扩展角色与立绘。新增能力使用现有 Dialogic 内置 HighlightPortrait / LayeredPortrait 预设和默认动画，没有增加第三方依赖或更换版本。
+
+0.4.0 在 0.3.0 正式 Source 基础上扩展文本、样式与交互。没有升级依赖；新增示例复用相同 Noto Sans CJK 字体和 Dialogic 示例 PNG，许可与 SHA256 适用。固定原生插件脚本未改变。

@@ -118,6 +118,10 @@ func validate_content(text: String) -> Dictionary:
 		issues.append("Description must be text.")
 	if not values.get("custom_info", {}) is Dictionary or not inert_data(values.get("custom_info", {})):
 		issues.append("Custom info must be a dictionary of finite inert values; objects and resources are not allowed.")
+	if values.get("custom_info", {}) is Dictionary:
+		for key: String in ["style", "prefix", "suffix"]:
+			if not values.get("custom_info", {}).get(key, "") is String:
+				issues.append("Character " + key + " must be a string.")
 	if not valid_transform(values):
 		issues.append("Character scale must be positive and finite, offset finite Vector2, mirror boolean.")
 	var default_value: Variant = values.get("default_portrait", "")

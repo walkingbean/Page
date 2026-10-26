@@ -11,6 +11,8 @@ const SKIP_DIRECTORIES: Array[String] = [".godot", ".git", ".svn", "addons"]
 
 var root_path: String = ""
 var variable_document: RefCounted = null
+var style_catalog: RefCounted
+var text_settings: RefCounted
 var characters: Dictionary = {}
 var timelines: Array[String] = []
 var diagnostics: Array[String] = []
@@ -35,11 +37,17 @@ func refresh() -> Error:
 	if root_path.is_empty() or not DirAccess.dir_exists_absolute(root_path) or _has_link_component(root_path):
 		characters.clear()
 		timelines.clear()
+		style_catalog = null
+		text_settings = null
 		diagnostics.assign(["The content folder is unavailable; character references have been disabled."])
 		return _fail(ERR_FILE_BAD_PATH, diagnostics[0])
 	characters.clear()
 	timelines.clear()
 	diagnostics.clear()
+	style_catalog = load("res://application/style_catalog.gd").new()
+	style_catalog.refresh(self)
+	text_settings = style_catalog.settings
+	diagnostics.append_array(style_catalog.diagnostics)
 	_scanned_entries = 0
 	_scan_complete = true
 	var paths: Array[String] = []
@@ -290,3 +298,34 @@ func _scan(directory_path: String, found: Array[String], depth: int = 0) -> void
 func _fail(error: Error, message: String) -> Error:
 	last_error = message
 	return error
+
+
+func style_error(name_value: String) -> String:
+	return style_catalog.error_for(name_value) if style_catalog != null else ("" if name_value.is_empty() else "Choose a content folder containing this style.")
+
+func import_text_asset(absolute_path: String) -> String:
+	last_error = ""
+	if absolute_path.get_extension().to_lower() == "png": return import_portrait(absolute_path)
+	if not absolute_path.is_absolute_path() or _has_link_component(absolute_path) or not absolute_path.get_extension().to_lower() in ["ttf", "otf"]:
+		last_error = "Choose a regular TTF, OTF or PNG file."; return ""
+	var bytes := FileAccess.get_file_as_bytes(absolute_path)
+	if bytes.is_empty() or bytes.size() > 32 * 1024 * 1024:
+		last_error = "Font file must be nonempty and at most 32 MiB."; return ""
+	var font := FontFile.new()
+	if font.load_dynamic_font(absolute_path) != OK: last_error = "The selected font could not be decoded."; return ""
+	var folder := resolve_content_path("res://fonts")
+	if folder.is_empty() or DirAccess.make_dir_recursive_absolute(folder) != OK: last_error = "Cannot create the content font folder."; return ""
+	var basename := absolute_path.get_file().get_basename().validate_filename()
+	var suffix := absolute_path.get_extension().to_lower()
+	var destination := folder.path_join(basename + "." + suffix)
+	var index := 1
+	while FileAccess.file_exists(destination) or DirAccess.dir_exists_absolute(destination) or _has_link_component(destination):
+		index += 1
+		if index > 10000: last_error = "No unused font filename is available."; return ""
+		destination = folder.path_join(basename + "_" + str(index) + "." + suffix)
+	var file := FileAccess.open(destination, FileAccess.WRITE)
+	if file == null: last_error = "Cannot write the imported font."; return ""
+	file.store_buffer(bytes); file.flush(); var error := file.get_error(); file.close()
+	if error != OK or FileAccess.get_file_as_bytes(destination) != bytes:
+		DirAccess.remove_absolute(destination); last_error = "Font copy verification failed."; return ""
+	return content_path(destination)

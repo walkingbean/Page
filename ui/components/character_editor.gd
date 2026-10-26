@@ -38,6 +38,10 @@ var _portrait_path := ""
 var nicknames_field: TextEdit
 var description_field: TextEdit
 var custom_info_field: CodeEdit
+var style_field: LineEdit
+var text_prefix_field: LineEdit
+var text_suffix_field: LineEdit
+var style_picker: MenuButton
 var character_scale: SpinBox
 var character_x: SpinBox
 var character_y: SpinBox
@@ -241,6 +245,9 @@ func show_document(title: String, identifier: String, character: DialogicCharact
 	nicknames_field.text = "\n".join(character.nicknames) if character else ""
 	description_field.text = character.description if character else ""
 	custom_info_field.text = var_to_str(character.custom_info) if character else "{}"
+	style_field.text = str(character.custom_info.get("style", "")) if character else ""
+	text_prefix_field.text = str(character.custom_info.get("prefix", "")) if character else ""
+	text_suffix_field.text = str(character.custom_info.get("suffix", "")) if character else ""
 	character_scale.value = character.scale if character else 1.0
 	character_x.value = character.offset.x if character else 0.0
 	character_y.value = character.offset.y if character else 0.0
@@ -375,12 +382,28 @@ func _build_extended_form(column: VBoxContainer) -> void:
 	column.add_child(HSeparator.new())
 	nicknames_field = _text_field(column, "Nicknames · one per line", "Nicknames", 62)
 	description_field = _text_field(column, "Description", "Description", 76)
+	column.add_child(_label("Character style and text prefix / suffix"))
+	var presentation_row := HBoxContainer.new()
+	column.add_child(presentation_row)
+	style_field = _field("CharacterStyle", "Style name · blank uses base style")
+	presentation_row.add_child(style_field)
+	style_picker = MenuButton.new(); style_picker.text = "Choose style"; presentation_row.add_child(style_picker)
+	style_picker.get_popup().id_pressed.connect(func(id: int):
+		style_field.text = str(style_picker.get_popup().get_item_metadata(id))
+		_on_presentation_changed(""))
+	text_prefix_field = _field("TextPrefix", "Text prefix")
+	text_suffix_field = _field("TextSuffix", "Text suffix")
+	column.add_child(text_prefix_field); column.add_child(text_suffix_field)
+	for field: LineEdit in [style_field, text_prefix_field, text_suffix_field]:
+		field.text_changed.connect(_on_presentation_changed)
+		_extra_controls.append(field)
+	_extra_controls.append(style_picker)
 	column.add_child(_label("Custom info · native dictionary"))
 	custom_info_field = CodeEdit.new()
 	custom_info_field.name = "CustomInfo"
 	custom_info_field.custom_minimum_size.y = 90
 	custom_info_field.text = "{}"
-	custom_info_field.text_changed.connect(_emit_fields_changed)
+	custom_info_field.text_changed.connect(_on_custom_info_changed)
 	column.add_child(custom_info_field)
 	_extra_controls.append(custom_info_field)
 	column.add_child(_label("Character transform · scale / offset X / offset Y / mirror"))
@@ -545,4 +568,40 @@ func use_layered_scene(logical: String) -> void:
 	_portraits[_selected]["export_overrides"] = {}
 	_refresh_portrait_list()
 	_show_selected()
+	_emit_fields_changed()
+
+
+func set_styles(names: Array[String]) -> void:
+	style_picker.get_popup().clear()
+	style_picker.get_popup().add_item("Use base style")
+	style_picker.get_popup().set_item_metadata(0, "")
+	for value: String in names:
+		style_picker.get_popup().add_item(value)
+		style_picker.get_popup().set_item_metadata(style_picker.get_popup().item_count - 1, value)
+
+func _on_presentation_changed(_value: String) -> void:
+	if _updating_fields: return
+	var checked := preload("res://application/character_document.gd")._check_data_tokens(custom_info_field.text)
+	if not checked.is_empty(): return
+	var value: Variant = str_to_var(custom_info_field.text)
+	if not value is Dictionary: return
+	for key: String in {"style":style_field, "prefix":text_prefix_field, "suffix":text_suffix_field}:
+		var text: String = {"style":style_field, "prefix":text_prefix_field, "suffix":text_suffix_field}[key].text
+		if text.is_empty(): value.erase(key)
+		else: value[key] = text
+	_updating_fields = true
+	custom_info_field.text = var_to_str(value)
+	_updating_fields = false
+	_emit_fields_changed()
+
+func _on_custom_info_changed() -> void:
+	if _updating_fields: return
+	if preload("res://application/character_document.gd")._check_data_tokens(custom_info_field.text).is_empty():
+		var value: Variant = str_to_var(custom_info_field.text)
+		if value is Dictionary:
+			_updating_fields = true
+			style_field.text = str(value.get("style", ""))
+			text_prefix_field.text = str(value.get("prefix", ""))
+			text_suffix_field.text = str(value.get("suffix", ""))
+			_updating_fields = false
 	_emit_fields_changed()

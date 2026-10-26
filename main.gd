@@ -20,6 +20,8 @@ var workspace: RefCounted = null
 var has_document := false
 var has_character := false
 var active_mode := "timeline"
+var styles_editor: Window
+var settings_editor: Window
 var character_editor: Control
 var variable_editor: Control
 var create_variables_dialog: ConfirmationDialog
@@ -81,6 +83,21 @@ func _ready() -> void:
 	variable_tab.add_theme_stylebox_override("normal", tabs.get_node("Timeline").get_theme_stylebox("normal"))
 	variable_tab.tooltip_text = "Edit native variable defaults"
 	variable_tab.pressed.connect(func(): _request_switch_mode("variables"))
+	styles_editor = preload("res://ui/components/style_editor.gd").new()
+	styles_editor.name = "StyleEditor"
+	add_child(styles_editor)
+	styles_editor.saved.connect(func(): _refresh_workspace())
+	settings_editor = preload("res://ui/components/text_settings_editor.gd").new()
+	settings_editor.name = "TextSettingsEditor"
+	add_child(settings_editor)
+	settings_editor.saved.connect(func(): _refresh_workspace())
+	for item: String in ["Layouts", "Settings"]:
+		var button: Button = tabs.get_node(item)
+		button.disabled = false
+		button.add_theme_stylebox_override("normal", tabs.get_node("Timeline").get_theme_stylebox("normal"))
+		button.pressed.connect(func(): _request_transition(func(): _with_workspace(func():
+			if item == "Layouts": styles_editor.open_styles(workspace)
+			else: settings_editor.open_settings(workspace))))
 	_build_content_bar()
 	character_editor = CharacterEditor.new()
 	character_editor.name = "CharacterEditor"
@@ -655,6 +672,11 @@ func _refresh_workspace(show_errors: bool = true, reload_variables: bool = true)
 
 
 func _refresh_workspace_chrome() -> void:
+	var style_names: Array[String] = []
+	if workspace != null and workspace.style_catalog != null:
+		for value: String in workspace.style_catalog.styles:
+			if not value.is_empty() and not value.begins_with("res://"): style_names.append(value)
+	character_editor.set_styles(style_names)
 	var ids: Array[String] = []
 	if workspace == null:
 		content_label.text = "No content folder · Narration files can still open"

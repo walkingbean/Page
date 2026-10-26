@@ -1,5 +1,6 @@
 extends PanelContainer
 
+signal interaction_requested(kind: String)
 signal character_properties_requested(kind: String)
 signal choice_requested
 signal flow_requested(kind: String)
@@ -11,6 +12,7 @@ signal comment_requested
 signal character_event_requested(source: String)
 
 const BUTTON_SCENE: PackedScene = preload("res://ui/components/event_palette_button.tscn")
+var interaction_buttons: Array[Button] = []
 var character_property_buttons: Array[Button] = []
 var flow_buttons: Array[Button] = []
 var inline_button: Button
@@ -128,6 +130,14 @@ func _ready() -> void:
 		sections.add_child(button)
 		sections.move_child(button, choice_button.get_index() + flow_buttons.size())
 		flow_buttons.append(button)
+	for kind: String in ["Text properties", "Wait", "WaitInput", "Clear", "TextInput", "Style", "Setting"]:
+		var action: Button = BUTTON_SCENE.instantiate()
+		action.name = kind.replace(" ", "")
+		action.text = kind
+		action.set(&"accent_color", Color(0.35, 0.65, 0.91))
+		action.pressed.connect(func(): interaction_requested.emit("Text" if kind == "Text properties" else kind))
+		sections.add_child(action)
+		interaction_buttons.append(action)
 	var note := Label.new()
 	note.text = "Text, # comments and\nCharacter properties.\nChoose a content folder\nto use saved characters."
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -155,7 +165,7 @@ func set_characters(identifiers: Array[String]) -> void:
 
 func set_editable(enabled: bool) -> void:
 	_editable = enabled
-	for button: Button in flow_buttons + character_property_buttons:
+	for button: Button in flow_buttons + character_property_buttons + interaction_buttons:
 		button.disabled = not enabled
 	if is_instance_valid(inline_button):
 		inline_button.disabled = not enabled

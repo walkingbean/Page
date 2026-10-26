@@ -1,0 +1,16 @@
+config_version=5
+
+; Native content settings; no host scene or script is launched by PAGE.
+[dialogic]
+variables={"player_name":"访客", "score":1, "show_extra":true}
+layout/style_list=["res://styles/Base.tres", "res://styles/Warm.tres", "res://styles/Cool.tres"]
+layout/default_style="res://styles/Base.tres"
+layout/style_directory={"":"res://styles/Base.tres", "Base":"res://styles/Base.tres", "Warm":"res://styles/Warm.tres", "Cool":"res://styles/Cool.tres"}
+text/letter_speed=0.025
+text/initial_text_reveal_skippable=true
+text/autocolor_names=true
+text/autoadvance_fixed_delay=0.4
+text/autoadvance_per_character_delay=0.03
+settings/text_speed=1.0
+settings/autoadvance_delay_modifier=1.0
+settings/demo_label="original"

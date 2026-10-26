@@ -20,6 +20,7 @@ signal content_changed(text: String)
 @onready var title_label: Label = $Header/HeaderMargin/HeaderRow/TimelineName
 
 var content_workspace: RefCounted
+var interaction_form: ConfirmationDialog
 var character_form: ConfirmationDialog
 var choice_form: ConfirmationDialog
 var flow_form: ConfirmationDialog
@@ -84,6 +85,10 @@ func _ready() -> void:
 	inline_form.name = "ConditionalTextEditor"
 	add_child(inline_form)
 	event_palette.connect(&"inline_requested", func(): inline_form.open_for_editor(source_editor))
+	interaction_form = preload("res://ui/components/text_interaction_editor.gd").new()
+	interaction_form.name = "TextInteractionEditor"
+	add_child(interaction_form)
+	event_palette.connect(&"interaction_requested", func(kind: String): interaction_form.open_for_editor(source_editor, content_workspace, kind))
 	_refresh_view_state()
 
 

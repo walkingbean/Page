@@ -1,4 +1,4 @@
-# PAGE Editor 0.3.0 官方资料
+# PAGE Editor 0.4.0 官方资料
 
 本版兼容目标固定为 Godot 4.7.1 / Dialogic 2.0-alpha-20。开发细节对照指定版本源码；在线文档用于补充与核对，不自动改变兼容目标。
 
@@ -92,3 +92,29 @@
 2026-10-25 核对 [Godot TSCN 格式](https://docs.godotengine.org/en/stable/engine_details/file_formats/tscn.html)、[Godot UID 说明](https://godotengine.org/article/uid-changes-coming-to-godot-4-4/)、[Dialogic 分层立绘](https://docs.dialogic.pro/layered-portraits.html) 与 [CharacterEvent](https://docs.dialogic.pro/classes/class_dialogiccharacterevent.html)。文档描述通用结构；兼容判定以指定 4.7.1 原生 ResourceSaver 输出和 Alpha 20 源码、实际双向测试为准。
 
 原生保存产生的节点 `unique_id`、场景及外部资源 `uid` 在编辑后保留；预览按内容根中的显式路径校验资源，不借用应用 UID 注册表解析目标图片。Alpha 20 的 `paused=false` setter 即使原来未暂停也会调用子系统 `_resume`；PAGE 关闭时先停止并释放本次动画节点，清空原生状态后才在必要时恢复暂停状态。原插件文件未修改。
+
+## 0.4.0 文本、样式与交互
+
+核对日期：2026-10-26（UTC+8）。
+
+- https://docs.dialogic.pro/writing-texts.html
+- https://docs.dialogic.pro/text-effects.html
+- https://docs.dialogic.pro/text-modifiers.html
+- https://docs.dialogic.pro/styles-and-layouts.html
+- https://docs.godotengine.org/en/4.7/tutorials/ui/bbcode_in_richtextlabel.html
+- https://docs.godotengine.org/en/4.7/classes/class_fontfile.html
+- https://godotengine.org/download/archive/4.7.1-stable/
+
+以用户指定 04-dialogic2alpha20_godot4.7.1.zip 原始工程和随附 Alpha 20 源码为直接依据。核对 Text/Event、Text/Input 子系统、AutoAdvance/AutoSkip、Style/DialogicStyle/DialogicStyleLayer、Setting/Settings、Wait/WaitInput、Clear、TextInput 及 DefaultLayoutParts 的公开导出字段。原生 Setting 写全局 Save 的行为在独立预览期间隔离；不改插件实现。文本效果顺序、随机选择和样式继承等语义以该固定版本实际执行为准。
+
+### 固定原生版本运行差异的实测记录
+
+- `Settings/subsystem_settings.gd:38` 对已有设置值直接使用 `!=`。原始工程实测布尔值改为字符串会产生脚本错误；PAGE 在执行前诊断不兼容的类型切换，保留源文本与插件字节。整数与浮点数互换仍允许。未声明默认值的设置可先 reset，再赋新类型；已声明默认值应使用相同类型或先修改默认配置。
+- 原生 TextInput 出现后若在文本框隐藏动画尚未结束时立即提交，参考工程曾出现下一段文本停在揭示状态的现象；日志和 25 秒超时轨迹保留。双向正常输入对照等待原生动画完成后提交，这不构成快速输入场景已通过的结论。
+
+- 独立原生对照确认：`auto_advance.gd` 初始 `delay_modifier` 为 1.0，`Settings._reload_settings()` 只载入默认字典，不发出变更信号。因此原生工程启动时设置的 `autoadvance_delay_modifier` 默认值不会立即影响计时；后续 Setting 事件真正改变该值才触发更新。PAGE 按这一固定版本行为预览，保存的原生默认键仍原样保留。
+- 原生预设包含的布局层不同。预览遇到缺少正文、选择或 TextInput 所需布局层时明确提示补齐；Text Bubble 基座需配合其动态文本气泡层。
+
+### 富文本效果的观察依据
+
+Godot 官方 [BBCode 文档](https://docs.godotengine.org/en/stable/tutorials/ui/bbcode_in_richtextlabel.html#fade) 将 fade 定义为逐字符静态透明度渐变；wave、tornado、shake、rainbow、pulse 可随时间改变。测试等待原生文本框入场结束，只比较文字区域；fade 与无标签对照比较，避免把文本框入场动画当作字形效果。此项核对日期为 2026-10-26（UTC+8），实际运行仍使用固定 4.7.1 引擎。

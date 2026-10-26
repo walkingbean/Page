@@ -14,6 +14,8 @@ const CONDITIONS = preload("res://application/condition_source.gd")
 const INLINE = preload("res://application/conditional_text.gd")
 const FLOW = preload("res://application/flow_source.gd")
 const GRAPH = preload("res://application/flow_graph.gd")
+const INTERACTION = preload("res://application/interaction_source.gd")
+const PRESENTATION = preload("res://application/text_presentation.gd")
 const VARIABLES = preload("res://application/text_variables.gd")
 
 
@@ -72,6 +74,7 @@ static func _validate_local(source: String, workspace: RefCounted, flow_mode: bo
 	var expected_events: Array[Dictionary] = []
 	var runtime: Dictionary = workspace.variable_document.runtime_values() if workspace != null and workspace.variable_document != null else {}
 	var active := true
+	var runtime_unknown := false
 	var chains: Dictionary = {}
 	for record: Dictionary in structure.records:
 		var first_line: int = record.line
@@ -90,7 +93,7 @@ static func _validate_local(source: String, workspace: RefCounted, flow_mode: bo
 			if raw_event.begins_with("if "):
 				chains[depth] = {"matched": false, "active": false}
 			var state: Dictionary = chains.get(depth, {"matched": false, "active": false})
-			var condition: Dictionary = CONDITIONS.inspect_event(raw_event, runtime, not flow_mode and parent_active and not state.matched)
+			var condition: Dictionary = CONDITIONS.inspect_event(raw_event, runtime, not flow_mode and not runtime_unknown and parent_active and not state.matched)
 			if condition.has("error"):
 				_add_raw_issue(issues, source_lines, source_columns, raw_event, condition.get("offset", 0), condition.error)
 				state.active = false
@@ -122,13 +125,13 @@ static func _validate_local(source: String, workspace: RefCounted, flow_mode: bo
 			if not problem.is_empty():
 				_add_issue(issues, first_line, 1, problem)
 				continue
-			var assignment: Dictionary = ASSIGNMENT.inspect_event(raw_event, runtime, active)
+			var assignment: Dictionary = ASSIGNMENT.inspect_event(raw_event, runtime, active and not runtime_unknown)
 			if assignment.has("error"):
 				_add_raw_issue(issues, source_lines, source_columns, raw_event, assignment.get("offset", 0), assignment.error)
 				continue
 			assignment["line"] = first_line
 			expected_events.append(assignment)
-			if active:
+			if active and not runtime_unknown:
 				runtime[assignment.name] = assignment.value
 			continue
 		if FLOW.is_flow(event):
@@ -141,8 +144,17 @@ static func _validate_local(source: String, workspace: RefCounted, flow_mode: bo
 				if event is DialogicChoiceEvent:
 					narration_count += 1
 			continue
+		if not INTERACTION.kind_of(event).is_empty():
+			var interaction := INTERACTION.inspect(raw_event, event, workspace, runtime, active and not runtime_unknown)
+			if interaction.has("error"):
+				_add_raw_issue(issues, source_lines, source_columns, raw_event, interaction.get("offset", 0), interaction.error)
+			else:
+				interaction["line"] = first_line
+				expected_events.append(interaction)
+				if event is DialogicTextInputEvent: runtime_unknown = true
+			continue
 		if not event is DialogicTextEvent:
-			_add_issue(issues, first_line, 1, "%s is outside this version's Text, Comment, scalar Variable, nested Condition, Choice, Jump/Return/End and Character scope." % event.event_name)
+			_add_issue(issues, first_line, 1, "%s is outside this version's Text, Comment, scalar Variable, Condition, flow, Character, Text and interaction scope." % event.event_name)
 			continue
 		var text_event: DialogicTextEvent = event as DialogicTextEvent
 		var escape_offset: int = 1 if raw_event.begins_with("\\") else 0
@@ -165,11 +177,20 @@ static func _validate_local(source: String, workspace: RefCounted, flow_mode: bo
 		# removes a second prefix from the trimmed Text body. Validate exactly
 		# what its variable parser receives, not an earlier escaped form.
 		var native_body: String = _native_text_body(body)
-		var variable_result: Dictionary = INLINE.inspect(native_body, workspace, runtime, active)
+		var variable_result: Dictionary = INLINE.inspect(native_body, workspace, runtime, active and not runtime_unknown)
 		if variable_result.has("error"):
 			var raw_offset: int = _native_body_source_offset(body, int(variable_result.get("offset", 0)))
 			_add_raw_issue(issues, source_lines, source_columns, raw_event, body_offset + raw_offset, variable_result["error"])
 			continue
+		var formatted := PRESENTATION.inspect(variable_result.get("expanded", native_body), workspace, workspace.get_character(speaker) if workspace != null and not speaker.is_empty() else null, true, portrait)
+		if formatted.has("error"):
+			_add_raw_issue(issues, source_lines, source_columns, raw_event, body_offset + int(formatted.get("offset", 0)), formatted.error)
+			continue
+		if workspace != null and not speaker.is_empty():
+			var style_problem: String = workspace.style_error(str(workspace.get_character(speaker).custom_info.get("style", "")))
+			if not style_problem.is_empty():
+				_add_issue(issues, first_line, 1, style_problem)
+				continue
 		var position: int = raw_event.find("#id:")
 		if position >= 0:
 			_add_raw_issue(issues, source_lines, source_columns, raw_event, position,
@@ -220,6 +241,7 @@ static func _validate_local(source: String, workspace: RefCounted, flow_mode: bo
 		for expected: Dictionary in expected_events:
 			source_map.append(expected.line)
 		timeline.set_meta("source_lines", source_map)
+		timeline.set_meta("has_interactions", expected_events.any(func(item: Dictionary): return item.kind == "interaction"))
 		timeline.set_meta("preview_characters", characters)
 		var defaults: Dictionary = {}
 		if workspace != null and workspace.variable_document != null:
@@ -234,8 +256,10 @@ static func _character_model(raw: String, workspace: RefCounted) -> Dictionary:
 
 
 static func _reference_error(identifier: String, portrait: String, workspace: RefCounted) -> String:
-	if _first_of(identifier + portrait, "{}[]") >= 0:
-		return "Dynamic character names, portrait expressions and text modifiers require a later version."
+	if _first_of(identifier + portrait, "[]") >= 0:
+		return "The native parser treated this as a character reference. Escape literal colons in text (including res\\:// and https\\://), or use Text properties to generate native source."
+	if _first_of(identifier + portrait, "{}") >= 0:
+		return "Dynamic character names and portrait expressions require a later version."
 	if identifier.is_empty():
 		return "A portrait requires a workspace character." if not portrait.is_empty() else ""
 	if workspace == null:
@@ -250,6 +274,8 @@ static func _reference_error(identifier: String, portrait: String, workspace: Re
 
 
 static func _parsed_mismatch(parsed: DialogicEvent, expected: Dictionary, characters: Dictionary) -> String:
+	if expected["kind"] == "interaction":
+		return INTERACTION.mismatch(parsed, expected)
 	if expected["kind"] in ["choice", "label", "jump", "return", "finish"]:
 		return FLOW.mismatch(parsed, expected)
 	if expected["kind"] == "end":

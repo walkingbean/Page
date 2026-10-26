@@ -1,0 +1,28 @@
+# PAGE Editor 0.4.0 — native text, styles and interaction
+[style name="Base"]
+[center][b]文本、样式与交互[/b][/center][br]点击 Advance 或按 Enter 继续。
+join Jane center
+Jane: 欢迎，{player_name}！[pause=0.05!]这里是[wave amp=20 freq=3]动态文本[/wave]与<你好/欢迎/很高兴见到你>。
+[text_input text="请输入你的名字" var="player_name" placeholder="例如：小明" default="访客" allow_empty="false"]
+Jane(close): [color=#ffd38a]{player_name}[/color]，你已经修改了本次预览的运行变量。
+setting "text_speed" = 0.5
+Jane: [speed=0.5]较慢的开头[speed][br][b]粗体[/b]、[i]斜体[/i]和[signal=demo]信号。
+setting reset "text_speed"
+[wait time="0.1" hide_text="false" skippable="true"]
+[wait_input hide_text="false"]
+join Antonio right
+Antonio: 我的专属样式使用冷色背景。[n]分段继续。[n+]这一段追加到前文。
+[style name="Base"]
+现在回到基础样式。选择一个分支：
+- 查看字体与图片
+	[font=res\://fonts/NotoSansCJKsc-Regular.otf]外部字体与中文[/font][br][img=36x36]res\://portraits/gold.png[/img]
+	set {score} = {score} + 1
+- 直接完成
+	保留原始分数。
+if {score} > 1:
+	已验证额外内容，当前分数：{score}。
+else:
+	当前分数：{score}。
+[clear time="0.0" step="false" text="true" portraits="true" music="false" background="false" positions="true" style="false"]
+完成。重启后，姓名和设置恢复保存的初值。[aa=0.1?]
+[end_timeline]

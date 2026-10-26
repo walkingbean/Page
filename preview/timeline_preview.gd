@@ -45,6 +45,10 @@ var _starting := false
 var _status: Label
 var _advance_button: Button
 var _restart_button: Button
+var _auto_button: CheckButton
+var _skip_button: CheckButton
+var _presentation: RefCounted
+var _layout_generation := 0
 
 
 func _init() -> void:
@@ -74,6 +78,10 @@ func _ready() -> void:
 	_handler.Text.text_started.connect(_on_text_started)
 	_handler.timeline_ended.connect(_on_timeline_ended)
 	_handler.Choices.question_shown.connect(_on_question_shown)
+	_handler.TextInput.input_shown.connect(_on_text_input_shown)
+	_handler.Styles.style_changed.connect(_on_style_changed)
+	_handler.Inputs.auto_skip.toggled.connect(func(value: bool): _skip_button.set_pressed_no_signal(value))
+	_handler.Inputs.auto_advance.toggled.connect(func(value: bool): _auto_button.set_pressed_no_signal(value))
 
 
 func start_preview(source: String, workspace: RefCounted = null, source_path: String = "") -> Error:
@@ -86,11 +94,16 @@ func start_preview(source: String, workspace: RefCounted = null, source_path: St
 		if not variable_problem.is_empty():
 			last_error = variable_problem
 			return ERR_UNAVAILABLE
+	if workspace != null and workspace.text_settings != null:
+		var settings_problem: String = workspace.text_settings.preview_error()
+		if not settings_problem.is_empty():
+			last_error = settings_problem
+			return ERR_UNAVAILABLE
 	var validation: Dictionary = Codec.validate_content(source, workspace, source_path)
 	if not validation.get("supported", false):
 		last_error = "\n".join(validation.get("diagnostics", []))
 		return ERR_UNAVAILABLE
-	if int(validation.get("event_count", 0)) == 0:
+	if int(validation.get("event_count", 0)) == 0 and not _has_interaction_source(source):
 		last_error = "Add at least one dialogue or narration event before starting preview."
 		return ERR_INVALID_DATA
 	var timeline: DialogicTimeline = Codec.parse_supported(source, workspace, source_path)
@@ -130,7 +143,7 @@ func stop_preview() -> void:
 
 
 func advance() -> void:
-	if running and is_instance_valid(_handler) and _handler.current_state != _handler.States.AWAITING_CHOICE:
+	if running and is_instance_valid(_handler) and not _text_input_visible() and _handler.current_state != _handler.States.AWAITING_CHOICE:
 		_handler.Inputs.handle_input()
 
 
@@ -143,7 +156,7 @@ func _begin(timeline: DialogicTimeline, generation: int, textures: Array[Resourc
 	await _clear_runtime()
 	if generation != _generation or not is_inside_tree():
 		Codec.GRAPH.release(timeline)
-		for texture: ImageTexture in textures:
+		for texture: Resource in textures:
 			texture.resource_path = ""
 		return
 	# Register the exact instances referenced by the native parsed events. A
@@ -165,9 +178,26 @@ func _begin(timeline: DialogicTimeline, generation: int, textures: Array[Resourc
 		_handler.Choices.default_false_behaviour = timeline.get_meta("preview_choice_default", 0)
 	DialogicResourceUtil.set_directory("dch", _runtime_characters)
 	_directory_active = true
+	_presentation = preload("res://preview/presentation_session.gd").new()
+	var presentation_error: Error = _presentation.begin(self, _handler, _workspace, generation)
+	if presentation_error != OK:
+		last_error = _presentation.last_error
+		_status.text = last_error
+		_starting = false
+		_restart_button.disabled = false
+		_restore_resources()
+		return
+	for character: DialogicCharacter in _runtime_characters.values():
+		if character.custom_info.get("style", "") is String:
+			character.custom_info["style"] = _presentation.remap_style_reference(character.custom_info.get("style", ""))
+	var all_timelines: Array = timeline.get_meta("preview_timelines", {}).values()
+	all_timelines.append(timeline)
+	for item: DialogicTimeline in all_timelines:
+		for event: DialogicEvent in item.events:
+			if event is DialogicStyleEvent: event.style_name = _presentation.remap_style_reference(event.style_name)
 	# Loading under this Window keeps the upstream CanvasLayer in its viewport.
 	# No editor singleton or EditorInterface is involved in the preview path.
-	_layout = _handler.Styles.load_style(DEFAULT_STYLE, self)
+	_layout = _handler.Styles.load_style("", self)
 	if _layout == null:
 		_starting = false
 		last_error = "The original Dialogic VN layout could not be loaded."
@@ -180,9 +210,9 @@ func _begin(timeline: DialogicTimeline, generation: int, textures: Array[Resourc
 	if generation != _generation or not is_inside_tree():
 		return
 	# Keep the upstream layout and Latin face, adding a bundled CJK fallback.
-	_layout.set("global_font", PREVIEW_FONT)
-	_layout.apply_export_overrides()
-	if timeline.has_meta("flow_preview"):
+	_apply_layout_font()
+	_prepare_native_choices()
+	if timeline.has_meta("flow_preview") and (_workspace == null or _workspace.style_catalog.styles.is_empty()):
 		_prepare_choice_controls(int(timeline.get_meta("preview_max_choices", 1)))
 	_starting = false
 	running = true
@@ -217,6 +247,7 @@ func _clear_runtime() -> void:
 	# event signals. Detach the old text nodes first so a finishing reveal cannot
 	# resume an old event after clear() has reset its timeline index to -1.
 	_discard_layout()
+	if _presentation != null: _presentation.disconnect_waits()
 	_handler.Inputs.stop_timers()
 	_handler.Inputs.auto_skip.enabled = false
 	_handler.Inputs.auto_advance.enabled_forced = false
@@ -288,6 +319,9 @@ func _prepare_portraits(timeline: DialogicTimeline, workspace: RefCounted, gener
 
 
 func _restore_resources() -> void:
+	if _presentation != null:
+		_presentation.restore()
+		_presentation = null
 	if _runtime_root != null:
 		if _had_timeline_directory:
 			Engine.set_meta("dtl_directory", _timeline_directory)
@@ -315,6 +349,8 @@ func _discard_layout() -> void:
 		_choice_canvas.get_parent().remove_child(_choice_canvas)
 		_choice_canvas.queue_free()
 	_choice_canvas = null
+	var current_layout: Node = _handler.Styles.get_layout_node() if is_instance_valid(_handler) else null
+	if is_instance_valid(current_layout): _layout = current_layout
 	if is_instance_valid(_layout):
 		# Text reveal sounds can still be playing when a preview is closed.
 		# Release their audio-server playback before freeing the layout.
@@ -340,6 +376,8 @@ func _on_window_input(event: InputEvent) -> void:
 	if key.keycode in [KEY_ESCAPE, KEY_F6]:
 		set_input_as_handled()
 		stop_preview()
+	elif _text_input_visible():
+		return
 	elif key.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE] and _handler.current_state != _handler.States.AWAITING_CHOICE:
 		set_input_as_handled()
 		advance()
@@ -382,6 +420,16 @@ func _on_text_started(info: Dictionary) -> void:
 	})
 	text_observed.emit(text)
 
+
+func _abort_presentation(problem: String) -> void:
+	if not running: return
+	last_error = problem
+	_status.text = problem
+	running = false
+	_handler.Inputs.stop_timers()
+	_handler.paused = true
+	_advance_button.disabled = true
+	_restart_button.disabled = false
 
 func _on_timeline_ended() -> void:
 	if not running:
@@ -436,6 +484,20 @@ func _build_chrome() -> void:
 	_advance_button.focus_mode = Control.FOCUS_NONE
 	_advance_button.pressed.connect(advance)
 	row.add_child(_advance_button)
+	_auto_button = CheckButton.new()
+	_auto_button.name = "AutoAdvance"
+	_auto_button.text = "Auto"
+	_auto_button.focus_mode = Control.FOCUS_NONE
+	_auto_button.toggled.connect(func(value: bool):
+		if running: _handler.Inputs.auto_advance.enabled_forced = value)
+	row.add_child(_auto_button)
+	_skip_button = CheckButton.new()
+	_skip_button.name = "AutoSkip"
+	_skip_button.text = "Skip"
+	_skip_button.focus_mode = Control.FOCUS_NONE
+	_skip_button.toggled.connect(func(value: bool):
+		if running: _handler.Inputs.auto_skip.enabled = value)
+	row.add_child(_skip_button)
 	_restart_button = Button.new()
 	_restart_button.text = "Restart"
 	_restart_button.focus_mode = Control.FOCUS_NONE
@@ -477,8 +539,6 @@ func _on_question_shown(info: Dictionary) -> void:
 func _guard_event(timeline: DialogicTimeline, index: int) -> bool:
 	if not running:
 		return false
-	if not timeline.has_meta("flow_preview"):
-		return true
 	_steps_without_input += 1
 	var problem := ""
 	if _steps_without_input > 10000:
@@ -502,16 +562,56 @@ func _guard_event(timeline: DialogicTimeline, index: int) -> bool:
 	return false
 
 
+func _layout_dependency_error(event: DialogicEvent, needs_choice := false) -> String:
+	if not (event is DialogicTextEvent or event is DialogicChoiceEvent or event is DialogicTextInputEvent): return ""
+	var name: String = _handler.Styles.style
+	if event is DialogicTextEvent:
+		name = _handler.Styles.base_style
+		if event.character != null and not str(event.character.custom_info.get("style", "")).is_empty(): name = event.character.custom_info.style
+	var style: DialogicStyle = DialogicStylesUtil.get_style(name)
+	var available: Dictionary = load("res://application/style_catalog.gd").presentation_capabilities(style)
+	if event is DialogicTextEvent and not available.text: return "This style has no usable text layer. Add a native textbox layer, or pair the Text Bubble base with its Textbubble layer."
+	if (event is DialogicChoiceEvent or needs_choice) and not available.choice: return "This style has no choice layer. Add a native choices layer before previewing choices."
+	if event is DialogicTextInputEvent and not available.input: return "This style has no TextInput layer. Add the native TextInput layer before previewing this event."
+	return ""
+
 func _runtime_problem(timeline: DialogicTimeline, index: int) -> String:
 	var event: DialogicEvent = timeline.events[index]
 	var values: Dictionary = _handler.VAR.var_storage
+	var needs_choice := event is DialogicTextEvent and index + 1 < timeline.events.size() and timeline.events[index + 1] is DialogicChoiceEvent
+	var presentation_error := _layout_dependency_error(event, needs_choice)
+	if not presentation_error.is_empty(): return presentation_error
 	var check := {}
 	if event is DialogicVariableEvent:
 		check = Codec.ASSIGNMENT.inspect_event(event.event_node_as_text, values, true)
 	elif event is DialogicConditionEvent:
 		check = Codec.CONDITIONS.inspect_event(event.event_node_as_text, values, true)
 	elif event is DialogicTextEvent:
-		check = Codec.INLINE.inspect(event.text, _workspace, values, true)
+		var prefix: String = ProjectSettings.get_setting("dialogic/text/dialog_text_prefix", "")
+		var suffix := ""
+		if event.character != null:
+			prefix += str(event.character.custom_info.get("prefix", ""))
+			suffix = str(event.character.custom_info.get("suffix", ""))
+		check = Codec.INLINE.inspect(prefix + event.text + suffix, _workspace, values, true)
+		if not check.has("error"):
+			# Native playback clones point to scoped cache scenes. Validate the
+			# content resource that produced this exact registered clone instead.
+			var content_character: DialogicCharacter = null
+			if event.character != null:
+				for identifier: String in _runtime_characters:
+					if _runtime_characters[identifier] == event.character:
+						content_character = _workspace.get_character(identifier) if _workspace != null else null
+						break
+				if content_character == null: return "The preview speaker no longer matches a validated content character."
+			var active_portrait: String = event.portrait
+			if content_character != null and active_portrait.is_empty():
+				active_portrait = _handler.Portraits.portraits.get(event.character.get_identifier(), {}).get("portrait", content_character.default_portrait)
+			check = Codec.PRESENTATION.inspect(check.get("expanded", event.text), _workspace, content_character, true, active_portrait)
+	elif not Codec.INTERACTION.kind_of(event).is_empty():
+		check = Codec.INTERACTION.inspect(event.event_node_as_text, event, _workspace, values, true)
+		if not check.has("error"):
+			var transition_error: String = Codec.INTERACTION.setting_transition_error(check, _handler.Settings.settings)
+			if not transition_error.is_empty(): check = {"error": transition_error}
 	elif event is DialogicJumpEvent:
 		check = Codec.FLOW.inspect(event.event_node_as_text, event, _workspace, values, true)
 		if not check.has("error") and not check.expanded_label.is_empty():
@@ -567,3 +667,74 @@ func _prepare_choice_controls(count: int) -> void:
 		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		choices.add_child(button)
+
+
+static func _has_interaction_source(source: String) -> bool:
+	return RegEx.create_from_string("(?m)^\\s*(?:\\[(?:wait|wait_input|text_input|style|clear)\\b|setting\\b|\\[end)").search(source) != null
+
+func _text_input_visible() -> bool:
+	if not is_instance_valid(_handler): return false
+	for node: Node in get_tree().get_nodes_in_group("dialogic_text_input"):
+		if node is CanvasItem and node.is_visible_in_tree(): return true
+	return false
+
+func _on_text_input_shown(_info: Dictionary) -> void:
+	if not running: return
+	_steps_without_input = 0
+	_input_surface.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_advance_button.disabled = true
+	_status.text = "Enter a value and confirm. Esc / F6 closes preview."
+
+func _on_style_changed(_info: Dictionary) -> void:
+	if not running and not _starting: return
+	_layout_generation += 1
+	_adopt_layout.call_deferred(_generation, _layout_generation)
+
+func _adopt_layout(generation: int, layout_generation: int) -> void:
+	var layout: Node = _handler.Styles.get_layout_node()
+	if not is_instance_valid(layout): return
+	if not layout.is_node_ready(): await layout.ready
+	if generation != _generation or layout_generation != _layout_generation or not is_instance_valid(layout): return
+	_layout = layout
+	_apply_layout_font()
+	_prepare_native_choices()
+	if is_instance_valid(_choice_canvas):
+		_choice_canvas.get_parent().remove_child(_choice_canvas)
+		_choice_canvas.queue_free()
+		_choice_canvas = null
+	if _runtime_root != null and _runtime_root.has_meta("flow_preview") and (_workspace == null or _workspace.style_catalog.styles.is_empty()):
+		_prepare_choice_controls(int(_runtime_root.get_meta("preview_max_choices", 1)))
+
+func _apply_layout_font() -> void:
+	if not is_instance_valid(_layout): return
+	# Alpha 20 TextInput creates a Theme but does not assign a new one.
+	# Supply a local Theme first so its native font-setting method can apply.
+	for layer: Node in _layout.get_layers():
+		if layer.get_script().resource_path == "res://addons/dialogic/Modules/DefaultLayoutParts/Layer_TextInput/text_input_layer.gd" and layer.get("theme") == null:
+			layer.set("theme", Theme.new())
+			layer.apply_export_overrides()
+	if "global_font" in _layout and str(_layout.get("global_font")).is_empty():
+		_layout.set("global_font", PREVIEW_FONT)
+		_layout.apply_export_overrides()
+
+func _prepare_native_choices() -> void:
+	if _runtime_root == null or _workspace == null or _workspace.style_catalog.styles.is_empty(): return
+	var count: int = _runtime_root.get_meta("preview_max_choices", 1)
+	for layer: Node in _layout.get_layers():
+		if not layer.has_method("get_choices"): continue
+		var choices: VBoxContainer = layer.get_choices()
+		if count <= int(layer.get("maximum_choices")): continue
+		# Reuse the native layer/theme and native choice buttons. Add overflow
+		# controls to a scroll container without changing saved style properties.
+		var scroll := ScrollContainer.new(); scroll.name = "PAGEChoiceOverflow"
+		scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		scroll.offset_top = 72; scroll.offset_bottom = -150
+		scroll.offset_left = 50; scroll.offset_right = -50
+		scroll.follow_focus = true; scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		layer.add_child(scroll)
+		choices.reparent(scroll); choices.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		for index: int in range(choices.get_child_count(), count):
+			var button := DialogicNode_ChoiceButton.new()
+			button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			button.custom_minimum_size = layer.get("boxes_min_size")
+			choices.add_child(button)

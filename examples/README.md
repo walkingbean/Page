@@ -1,4 +1,4 @@
-# PAGE Editor 0.1.0 示例
+# PAGE Editor 0.4.0 示例
 
 | 示例 | 打开方式 | 内容 |
 |---|---|---|
@@ -32,3 +32,7 @@
 ## portrait_story — 角色与立绘
 
 在 Content Folder 选择此文件夹，打开 conversation.dtl。示例依次展示高亮、多立绘变换、UPDATE、原生动画、全部退场和 LayeredPortrait 的 Badges/Gold、Badges/Blue 排他切换。角色图片来自既有 character_story；色块为本项目生成的分层演示素材。角色页可调整别名、描述和自定义信息；Layer editor 可直接编辑 portraits/layered.tscn。迁入原生工程时保留相对路径并合并 project.godot 的 dialogic 配置，不覆盖目标工程其他设置。
+
+## text_style_story — 文本、样式与交互
+
+选择可写副本为内容根并打开 conversation.dtl。包括真实姓名输入、角色样式、富文本/随机文本/效果、字体/图片、等待、设置、清除与变量分支。原生资源和配置可直接移交固定参考工程。
