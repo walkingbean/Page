@@ -1,0 +1,14 @@
+[background arg="res://background.svg" fade="0.2" wait="true"]
+audio music "res://tone.wav" [volume="-18" loop="true"]
+PAGE Editor media and state preview.
+[voice path="res://voice.wav" volume="-9" bus="Master"]
+This text has an actual voice-track fixture (a generated test tone).
+[history action="1"]
+This line is not collected by simple history.
+[history action="2"]
+set {score} = 2
+[save slot="Demo"]
+Saved score is {score}. Open History / Saves to inspect or restore Demo.
+audio music - [fade="0.2"]
+[background arg="#29463b" fade="0.2" wait="true"]
+End of media demonstration.

@@ -32,6 +32,18 @@ static func inspect_event(source: String, values: Variant = null, evaluate: bool
 
 
 static func scan(source: String, cache: Array) -> Dictionary:
+	# Alpha 20 discovers modules in filesystem order. Variable accepts the
+	# prefix "set", which also matches "setting"; keep the more specific native
+	# recognizer first. This shared cache also feeds native Timeline.process().
+	var setting_index := -1
+	var variable_index := -1
+	for index: int in cache.size():
+		if cache[index] is DialogicSettingEvent: setting_index = index
+		elif cache[index] is DialogicVariableEvent: variable_index = index
+	if variable_index >= 0 and setting_index > variable_index:
+		var setting: DialogicEvent = cache[setting_index]
+		cache.remove_at(setting_index)
+		cache.insert(variable_index, setting)
 	var records: Array[Dictionary] = []
 	var issues: Array[Dictionary] = []
 	var lines := source.split("\n", true)

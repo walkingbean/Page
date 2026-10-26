@@ -3,6 +3,9 @@ extends "res://application/timeline_document.gd"
 const Data = preload("res://application/variable_document.gd")
 const Native = preload("res://application/native_resource.gd")
 const DEFAULTS := {
+	"audio/type_sound_bus":"Master", "audio/channel_defaults":{"":{"volume":0.0,"audio_bus":"","fade_length":0.0,"loop":false}, "music":{"volume":0.0,"audio_bus":"","fade_length":0.0,"loop":true}},
+	"history/simple_history_enabled":false, "history/simple_history_save":false, "history/full_history_enabled":false, "history/full_history_save":false, "history/visited_event_history_enabled":false, "history/save_on_save":false, "history/save_on_autosave":false,
+	"save/autosave":false, "save/autosave_mode":0, "save/autosave_delay":60, "save/default_slot":"Default", "save/encryption_password":"", "save/encryption_on_exports_only":true,
 	"text/letter_speed": 0.01, "text/input_action": "dialogic_default_action",
 	"text/initial_text_reveal_skippable": true, "text/text_reveal_skip_delay": 0.1,
 	"text/advance_delay": 0.1, "text/autocolor_names": false, "text/dialog_text_prefix": "",
@@ -98,6 +101,20 @@ static func value_error(key: String, value: Variant) -> String:
 		return ""
 	if not Native.compatible_type(typeof(DEFAULTS[key]), value) or not Native.finite_data(value): return "Invalid native setting type: " + key
 	if value is float and value < 0: return "Time and speed settings must be finite and nonnegative."
+	if key == "save/autosave_mode" and not value in [0, 1, 2]: return "Autosave mode must be 0 (timeline), 1 (timer) or 2 (text)."
+	if key == "save/autosave_delay" and value <= 0: return "Autosave delay must be positive."
+	if key == "save/default_slot":
+		if value.is_empty(): return "Default slot must not be empty."
+		return preload("res://application/media_source.gd").slot_error(value)
+	if key == "audio/channel_defaults":
+		for channel: Variant in value:
+			if not channel is String or (not channel.is_empty() and (channel == "-" or RegEx.create_from_string("^[\\w-]+$").search(channel) == null)): return "Invalid audio channel name."
+			if not value[channel] is Dictionary: return "Audio channel defaults must be dictionaries."
+			var defaults := {"volume":0.0, "audio_bus":"", "fade_length":0.0, "loop":true}
+			for field: Variant in value[channel]:
+				if not defaults.has(field) or not Native.compatible_type(typeof(defaults[field]), value[channel][field]): return "Unknown or invalid audio channel field."
+			if value[channel].get("fade_length", 0.0) < 0: return "Channel fade must be nonnegative."
+			if channel.is_empty() and (value[channel].get("loop", false) or value[channel].get("fade_length", 0.0) != 0): return "One-shot defaults require loop=false and fade_length=0."
 	if key == "text/split_at_new_lines_as" and not value in [0, 1]: return "Newline mode must be 0 or 1."
 	if key == "text/autopauses":
 		for chars: Variant in value:

@@ -16,22 +16,25 @@ static func failure(message: String) -> Dictionary:
 	return {"error": message, "supported": false, "diagnostics": [message]}
 
 static func decode(raw: String) -> Dictionary:
-	var out := ""
+	# Keep unchanged spans intact. Appending every numeric character repeatedly
+	# copies the growing String and makes ordinary embedded font data quadratic.
+	var parts := PackedStringArray()
+	var literal_start := 0
 	var i := 0
 	while i < raw.length():
 		var ch := raw[i]
 		if ch == '"':
-			var start := i
 			i += 1
 			while i < raw.length():
 				if raw[i] == "\\": i += 2
 				elif raw[i] == '"': i += 1; break
 				else: i += 1
-			out += raw.substr(start, i - start)
 			continue
 		if ch == ";":
+			parts.append(raw.substr(literal_start, i - literal_start))
 			i = Data._after_line(raw, i)
-			out += "\n"
+			parts.append("\n")
+			literal_start = i
 			continue
 		var code := ch.unicode_at(0)
 		if ch == "_" or (code >= 65 and code <= 90) or (code >= 97 and code <= 122):
@@ -42,8 +45,10 @@ static func decode(raw: String) -> Dictionary:
 			if word in ["ExtResource", "SubResource"]:
 				var found := RegEx.create_from_string('^\\s*\\(\\s*"([^"\\r\\n]+)"\\s*\\)').search(raw.substr(i))
 				if found == null: return failure("Invalid native resource reference.")
-				out += var_to_str({REF_KEY: word, "id": found.get_string(1)})
+				parts.append(raw.substr(literal_start, start - literal_start))
+				parts.append(var_to_str({REF_KEY: word, "id": found.get_string(1)}))
 				i += found.get_end()
+				literal_start = i
 			elif word == "Array" and i < raw.length() and raw[i] == "[":
 				# Typed arrays retain values; the owning property re-applies its type.
 				var end := raw.find("]", i)
@@ -53,8 +58,6 @@ static func decode(raw: String) -> Dictionary:
 				i = end + 1
 				while i < raw.length() and raw[i] in [" ", "\t"]: i += 1
 				if i >= raw.length() or raw[i] != "(": return failure("Invalid typed array.")
-				var span := Data._value_span(raw, i)
-				if span.has("error"): return span
 				# Locate this wrapper's closing parenthesis, respecting nested values.
 				var depth := 1
 				var j := i + 1
@@ -68,15 +71,22 @@ static func decode(raw: String) -> Dictionary:
 					elif raw[j] == ")": depth -= 1
 					j += 1
 				if depth != 0: return failure("Unclosed typed array wrapper.")
+				# Validate only this wrapper. A typed array can be nested inside a
+				# dictionary/array whose later closing delimiters belong to its parent.
+				var span := Data._value_span(raw.substr(i, j - i), 0)
+				if span.has("error"): return span
 				var nested := decode(raw.substr(i + 1, j - i - 2))
 				if nested.has("error"): return nested
-				out += var_to_str(nested.value)
+				parts.append(raw.substr(literal_start, start - literal_start))
+				parts.append(var_to_str(nested.value))
 				i = j
-			elif word in TOKENS: out += word
+				literal_start = i
+			elif word in TOKENS: pass
 			else: return failure("Unsupported native value constructor: " + word)
 		else:
-			out += ch
 			i += 1
+	parts.append(raw.substr(literal_start))
+	var out := "".join(parts)
 	var checked := Data._value_span(out, 0)
 	if checked.has("error"): return checked
 	return Data._parse_value(out)

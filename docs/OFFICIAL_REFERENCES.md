@@ -1,4 +1,4 @@
-# PAGE Editor 0.4.0 官方资料
+# PAGE Editor 0.5.0 官方资料
 
 本版兼容目标固定为 Godot 4.7.1 / Dialogic 2.0-alpha-20。开发细节对照指定版本源码；在线文档用于补充与核对，不自动改变兼容目标。
 
@@ -118,3 +118,14 @@
 ### 富文本效果的观察依据
 
 Godot 官方 [BBCode 文档](https://docs.godotengine.org/en/stable/tutorials/ui/bbcode_in_richtextlabel.html#fade) 将 fade 定义为逐字符静态透明度渐变；wave、tornado、shake、rainbow、pulse 可随时间改变。测试等待原生文本框入场结束，只比较文字区域；fade 与无标签对照比较，避免把文本框入场动画当作字形效果。此项核对日期为 2026-10-26（UTC+8），实际运行仍使用固定 4.7.1 引擎。
+
+## 0.5.0 媒体与状态核对
+
+- [Godot 运行时文件加载](https://docs.godotengine.org/en/4.7/tutorials/io/runtime_file_loading_and_saving.html)：外部图片、WAV/OGG/MP3 的运行时加载。
+- [Dialogic 存读档](https://docs.dialogic.pro/saving-and-loading.html)：原生状态与保存槽。
+- [Dialogic Audio](https://docs.dialogic.pro/classes/class_dialogic_audio.html)、[Voice](https://docs.dialogic.pro/classes/class_dialogic_voice.html)、[TypeSounds](https://docs.dialogic.pro/classes/class_dialogicnode_typesounds.html)：通道、语音、打字声音。
+- [Dialogic 文本效果](https://docs.dialogic.pro/text-effects.html)、[角色与立绘](https://docs.dialogic.pro/characters-and-portraits.html)：mood 与角色字段。
+
+固定源码：Modules/Background、Audio、Voice、History、Save、Text/node_type_sounds.gd，Core/DialogicGameHandler.gd、DialogicSaveState 资源与 Variable/subsystem_variables.gd。网页描述与固定代码不同时，以随包 Alpha 20 为兼容依据。已保留 History 保存开关、大小写动作、Save Default 序列化等差异；详细证据在独立测试进度包。存档适配保持原生子系统 API，但稳定资源引用与完整性验证属于 PAGE 预览环境。
+
+0.5.0 补充核对固定源码 `DialogicResourceUtil.gd` 的事件索引顺序、`Variable/event_variable.gd` 的 `set` 前缀识别及 `Settings/event_setting.gd` 的 `setting` 识别。原始参考工程在执行614中复现前者先命中；PAGE 应用层调整顺序的执行506通过，原生差异仍保留。背景生命周期另核对 `Background/subsystem_backgrounds.gd`：无布局 holder 时清理提前返回，身份字段不会重置；PAGE 在移除布局前取消过渡，原生清理后明确清空身份，执行547–551验证实际节点、像素与关闭/重启。以上均以随附固定源码和本版实际执行为依据，未修改插件。

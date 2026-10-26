@@ -378,6 +378,9 @@ func _character_portrait_path(character: DialogicCharacter) -> String:
 	return image_path
 
 
+var sound_editor: ConfirmationDialog
+var portrait_mood: LineEdit
+
 func _build_extended_form(column: VBoxContainer) -> void:
 	column.add_child(HSeparator.new())
 	nicknames_field = _text_field(column, "Nicknames · one per line", "Nicknames", 62)
@@ -406,6 +409,21 @@ func _build_extended_form(column: VBoxContainer) -> void:
 	custom_info_field.text_changed.connect(_on_custom_info_changed)
 	column.add_child(custom_info_field)
 	_extra_controls.append(custom_info_field)
+	sound_editor = preload("res://ui/components/sound_mood_editor.gd").new(); add_child(sound_editor)
+	var sound_button := Button.new(); sound_button.name = "EditSoundMoods"; sound_button.text = "Edit typing sounds"; column.add_child(sound_button); _extra_controls.append(sound_button)
+	sound_button.pressed.connect(func():
+		var fields := get_fields()
+		if fields.form_error.is_empty(): sound_editor.open_moods(fields.custom_info))
+	sound_editor.applied.connect(func(moods: Dictionary, default_mood: String):
+		var fields := get_fields()
+		if not fields.form_error.is_empty(): return
+		fields.custom_info["sound_moods"] = moods; fields.custom_info["sound_mood_default"] = default_mood
+		custom_info_field.text = var_to_str(fields.custom_info); _on_custom_info_changed())
+	portrait_mood = _field("PortraitSoundMood", "Selected portrait sound mood · blank uses character default")
+	column.add_child(portrait_mood); _extra_controls.append(portrait_mood)
+	portrait_mood.text_changed.connect(func(value: String):
+		if not _updating_fields and _portraits.has(_selected): _portraits[_selected]["sound_mood"] = value; _emit_fields_changed())
+
 	column.add_child(_label("Character transform · scale / offset X / offset Y / mirror"))
 	var global_row := HBoxContainer.new()
 	column.add_child(global_row)
@@ -530,6 +548,7 @@ func _show_selected() -> void:
 	_updating_fields = true
 	var value: Dictionary = _portraits.get(_selected, _new_portrait())
 	portrait_name_field.text = _selected
+	if portrait_mood != null: portrait_mood.text = value.get("sound_mood", "")
 	var scene: String = value.get("scene", "")
 	preset_selector.select(0 if scene.is_empty() or scene.ends_with("/default_portrait.tscn") else (1 if scene == preload("res://application/character_document.gd").HIGHLIGHT else 2))
 	scene_path_field.text = scene if preset_selector.selected == 2 else ""

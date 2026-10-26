@@ -33,6 +33,7 @@ func begin(window: Window, runtime: DialogicGameHandler, content_workspace: RefC
 		if not last_error.is_empty(): return ERR_UNAVAILABLE
 	var values: Dictionary = SettingsDocument.DEFAULTS.duplicate(true)
 	if workspace != null and workspace.text_settings != null: values.merge(workspace.text_settings.values, true)
+	values["variables"] = content_workspace.variable_document.saved_values() if content_workspace != null and content_workspace.variable_document != null else {}
 	for signal_value: Signal in [handler.Inputs.dialogic_action, handler.Inputs.dialogic_action_priority, handler.Wait.timeout, handler.TextInput.input_confirmed, handler.Inputs.auto_advance.autoadvance]:
 		var callbacks: Array[Callable] = []
 		for connection: Dictionary in signal_value.get_connections(): callbacks.append(connection.callable)
@@ -78,7 +79,8 @@ func begin(window: Window, runtime: DialogicGameHandler, content_workspace: RefC
 	for field: String in mapping:
 		old_auto[field] = auto.get(field)
 		auto.set(field, values["text/" + mapping[field]])
-	for field: String in ["enabled_forced", "enabled_until_user_input", "enabled_until_next_event", "override_delay_for_current_event", "delay_modifier"]: old_auto[field] = auto.get(field)
+	for field: String in ["await_playing_voice", "enabled_forced", "enabled_until_user_input", "enabled_until_next_event", "override_delay_for_current_event", "delay_modifier"]: old_auto[field] = auto.get(field)
+	old_auto["skip_voice"] = handler.Inputs.auto_skip.skip_voice
 	old_auto["skip_time"] = handler.Inputs.auto_skip.time_per_event
 	# Alpha-20 initializes this field to 1.0 and only changes it on a
 	# Settings change signal; _reload_settings does not emit that signal.
@@ -118,7 +120,8 @@ func restore() -> void:
 	handler.Settings.settings = old_runtime_settings
 	handler.Text._update_user_speed(handler.Settings.get_setting("text_speed", 1.0))
 	for field: String in old_auto:
-		if field == "skip_time": handler.Inputs.auto_skip.time_per_event = old_auto[field]
+		if field == "skip_voice": handler.Inputs.auto_skip.skip_voice = old_auto[field]
+		elif field == "skip_time": handler.Inputs.auto_skip.time_per_event = old_auto[field]
 		else: handler.Inputs.auto_advance.set(field, old_auto[field])
 	if is_instance_valid(save_node):
 		handler.add_child(save_node)

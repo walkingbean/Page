@@ -13,6 +13,10 @@ static func inspect(text: String, workspace: RefCounted = null, character: Dialo
 		if not argument.is_valid_float() or not is_finite(argument.to_float()) or argument.to_float() < 0:
 			return {"offset": match_value.get_start(), "error": key + " requires a finite nonnegative value."}
 	if not check_resources: return {}
+	for mood: RegExMatch in RegEx.create_from_string('(?<!\\\\)\\[mood=([^\\]]*)\\]').search_all(text):
+		var name := mood.get_string(1)
+		if name.is_empty(): continue
+		if character == null or not character.custom_info.get("sound_moods", {}).has(name): return {"offset":mood.get_start(), "error":"The text effect references a missing character sound mood: " + name}
 	var selected_portrait := active_portrait
 	for effect: RegExMatch in RegEx.create_from_string('(?<!\\\\)\\[(portrait|extra_data)=([^\\]]*)\\]').search_all(text):
 		if character == null: return {"offset": effect.get_start(), "error": "Portrait text effects require a workspace speaker."}

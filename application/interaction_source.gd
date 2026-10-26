@@ -2,7 +2,8 @@ extends RefCounted
 
 const Scalar = preload("res://application/scalar_expression.gd")
 const Native = preload("res://application/native_resource.gd")
-const KINDS := ["Wait", "WaitInput", "Clear", "TextInput", "Style", "Setting"]
+const Media = preload("res://application/media_source.gd")
+const KINDS := ["Wait", "WaitInput", "Clear", "TextInput", "Style", "Setting", "Background", "Audio", "Voice", "History", "Save"]
 
 static func create(kind: String) -> DialogicEvent:
 	match kind:
@@ -12,7 +13,7 @@ static func create(kind: String) -> DialogicEvent:
 		"TextInput": return DialogicTextInputEvent.new()
 		"Style": return DialogicStyleEvent.new()
 		"Setting": return DialogicSettingEvent.new()
-	return null
+	return Media.create(kind)
 
 static func kind_of(event: DialogicEvent) -> String:
 	for kind: String in KINDS:
@@ -30,6 +31,7 @@ static func setting_name_error(value: String) -> String:
 static func inspect(raw: String, event: DialogicEvent, workspace: RefCounted = null, values: Dictionary = {}, evaluate := false) -> Dictionary:
 	var kind := kind_of(event)
 	if kind.is_empty(): return {"error": "Unknown interaction event."}
+	if kind in Media.KINDS: return Media.inspect(raw, event, workspace)
 	if kind == "Setting": return inspect_setting(raw, workspace, values, evaluate)
 	var clone := create(kind)
 	var code := clone.get_shortcode()
@@ -110,6 +112,7 @@ static func mismatch(event: DialogicEvent, expected: Dictionary) -> String:
 	return ""
 
 static func serialize(kind: String, fields: Dictionary) -> Dictionary:
+	if kind in Media.KINDS: return Media.serialize(kind, fields)
 	var event := create(kind)
 	if event == null: return {"error": "Unknown event kind."}
 	if kind == "Setting":

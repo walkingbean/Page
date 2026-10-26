@@ -47,6 +47,8 @@ var _advance_button: Button
 var _restart_button: Button
 var _auto_button: CheckButton
 var _skip_button: CheckButton
+var _media: RefCounted
+var _state_panel: Window
 var _presentation: RefCounted
 var _layout_generation := 0
 
@@ -135,6 +137,7 @@ func stop_preview() -> void:
 	_generation += 1
 	_starting = false
 	running = false
+	if is_instance_valid(_state_panel): _state_panel.hide()
 	hide()
 	if is_instance_valid(_advance_button):
 		_advance_button.disabled = true
@@ -195,6 +198,9 @@ func _begin(timeline: DialogicTimeline, generation: int, textures: Array[Resourc
 	for item: DialogicTimeline in all_timelines:
 		for event: DialogicEvent in item.events:
 			if event is DialogicStyleEvent: event.style_name = _presentation.remap_style_reference(event.style_name)
+	_media = preload("res://preview/media_session.gd").new()
+	if _media.begin(self, _handler, _workspace, timeline, _presentation) != OK:
+		last_error = _media.last_error; _status.text = last_error; _starting = false; _restart_button.disabled = false; _restore_resources(); return
 	# Loading under this Window keeps the upstream CanvasLayer in its viewport.
 	# No editor singleton or EditorInterface is involved in the preview path.
 	_layout = _handler.Styles.load_style("", self)
@@ -236,6 +242,13 @@ func _clear_runtime() -> void:
 	if not is_instance_valid(_handler):
 		return
 	_resetting = true
+	# An idle clear also runs before the first preview and after it has closed.
+	# Preserve application history until the media session can snapshot it.
+	# Active sessions restore their own snapshot in _restore_resources().
+	var idle_history := {}
+	if _media == null:
+		for field: String in ["simple_history_content", "full_event_history_content"]:
+			idle_history[field] = _handler.History.get(field).duplicate(true)
 	# Alpha 20 keeps animation nodes under Portraits, separately from the
 	# layout. Stop their completion signals before removing their target nodes.
 	# This also releases repeating animations on close and restart.
@@ -243,10 +256,17 @@ func _clear_runtime() -> void:
 		if animation is DialogicAnimation:
 			animation.set_block_signals(true)
 			animation.queue_free()
+	# Background transitions also outlive their layout in Alpha 20. Cancel
+	# their callbacks before removing the viewports they animate.
+	for transition: Node in _handler.Backgrounds.get_children():
+		if transition is DialogicBackgroundTransition:
+			transition.set_block_signals(true)
+			transition.queue_free()
 	# Native timeline cleanup yields one frame before disconnecting suspended
 	# event signals. Detach the old text nodes first so a finishing reveal cannot
 	# resume an old event after clear() has reset its timeline index to -1.
 	_discard_layout()
+	if _media != null and is_instance_valid(_media.save_node): _media.save_node.autosave_enabled = false
 	if _presentation != null: _presentation.disconnect_waits()
 	_handler.Inputs.stop_timers()
 	_handler.Inputs.auto_skip.enabled = false
@@ -256,12 +276,19 @@ func _clear_runtime() -> void:
 	# DialogicTimeline.clean() waits one frame; awaiting it prevents an older
 	# cleanup coroutine from wiping the next preview's timeline.
 	await _handler.clear(DialogicGameHandler.ClearFlags.FULL_CLEAR)
+	# Native Backgrounds.clear() returns early when no holder remains. Reset
+	# its identity explicitly so a new preview using the same color creates
+	# a real background instead of taking the native unchanged-value shortcut.
+	_handler.Backgrounds.scene = ""
+	_handler.Backgrounds.argument = ""
 	# Resume only after native portrait state is empty. The native paused
 	# setter invokes _resume even when already false; stale animation metadata
 	# must never be resumed during teardown.
 	if _handler.paused:
 		_handler.paused = false
 	_restore_resources()
+	for field: String in idle_history:
+		_handler.History.set(field, idle_history[field])
 	_resetting = false
 	_reset_completed.emit()
 
@@ -319,9 +346,12 @@ func _prepare_portraits(timeline: DialogicTimeline, workspace: RefCounted, gener
 
 
 func _restore_resources() -> void:
+	if _media != null: _media.restore()
 	if _presentation != null:
 		_presentation.restore()
 		_presentation = null
+	if _media != null:
+		_media.restore_history_connections(); _media = null
 	if _runtime_root != null:
 		if _had_timeline_directory:
 			Engine.set_meta("dtl_directory", _timeline_directory)
@@ -376,7 +406,7 @@ func _on_window_input(event: InputEvent) -> void:
 	if key.keycode in [KEY_ESCAPE, KEY_F6]:
 		set_input_as_handled()
 		stop_preview()
-	elif _text_input_visible():
+	elif (is_instance_valid(_state_panel) and _state_panel.visible) or _text_input_visible():
 		return
 	elif key.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE] and _handler.current_state != _handler.States.AWAITING_CHOICE:
 		set_input_as_handled()
@@ -503,6 +533,9 @@ func _build_chrome() -> void:
 	_restart_button.focus_mode = Control.FOCUS_NONE
 	_restart_button.pressed.connect(restart)
 	row.add_child(_restart_button)
+	var state_button := Button.new(); state_button.name = "HistoryAndSaves"; state_button.text = "History / Saves"; state_button.focus_mode = Control.FOCUS_NONE; row.add_child(state_button)
+	_state_panel = preload("res://ui/components/preview_state_panel.gd").new(); add_child(_state_panel)
+	state_button.pressed.connect(func(): _state_panel.open_panel(self))
 	var stop_button := Button.new()
 	stop_button.text = "Close"
 	stop_button.focus_mode = Control.FOCUS_NONE
@@ -670,7 +703,7 @@ func _prepare_choice_controls(count: int) -> void:
 
 
 static func _has_interaction_source(source: String) -> bool:
-	return RegEx.create_from_string("(?m)^\\s*(?:\\[(?:wait|wait_input|text_input|style|clear)\\b|setting\\b|\\[end)").search(source) != null
+	return RegEx.create_from_string("(?m)^\\s*(?:\\[(?:wait|wait_input|text_input|style|clear|background|voice|history|save)\\b|setting\\b|audio\\b|\\[end)").search(source) != null
 
 func _text_input_visible() -> bool:
 	if not is_instance_valid(_handler): return false
@@ -738,3 +771,43 @@ func _prepare_native_choices() -> void:
 			button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			button.custom_minimum_size = layer.get("boxes_min_size")
 			choices.add_child(button)
+
+
+func report_save_error(message: String) -> void:
+	_status.text = "Preview save: " + message
+
+func restore_saved_state(state: DialogicSaveState) -> void:
+	if _media == null: return
+	var save: Node = _media.save_node
+	if _starting:
+		save.load_pending = false; save.last_error = "Preview is still starting."; save.load_completed.emit(ERR_BUSY); return
+	var generation := _generation
+	_starting = true
+	running = false
+	var enabled: bool = _media.save_node.autosave_enabled
+	_media.save_node.autosave_enabled = false
+	_discard_layout()
+	await _handler.clear(DialogicGameHandler.ClearFlags.FULL_CLEAR)
+	if _media == null or generation != _generation: return
+	running = true
+	var variable_defaults: Variant = ProjectSettings.get_setting("dialogic/variables", {})
+	ProjectSettings.set_setting("dialogic/variables", {})
+	await _handler.load_full_state(state)
+	ProjectSettings.set_setting("dialogic/variables", variable_defaults)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if _media == null or generation != _generation: return
+	_layout = _handler.Styles.get_layout_node()
+	if is_instance_valid(_layout) and _layout.get_parent() != self: _layout.reparent(self)
+	if is_instance_valid(_layout): _apply_layout_font(); _prepare_native_choices()
+	_media.save_node.autosave_enabled = enabled
+	_starting = false
+	if not running and not last_error.is_empty():
+		save.load_pending = false
+		save.last_error = last_error
+		save.load_completed.emit(ERR_INVALID_DATA)
+		return
+	_advance_button.disabled = false
+	_status.text = "Loaded preview state. Advance to continue."
+	save.load_pending = false
+	save.load_completed.emit(OK)

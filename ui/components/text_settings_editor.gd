@@ -14,9 +14,10 @@ var initial_custom := ""
 var save_button: Button
 var discard_dialog: ConfirmationDialog
 var creation_dialog: ConfirmationDialog
+var channel_editor: ConfirmationDialog
 
 func _ready() -> void:
-	title = "Text & interaction settings"; size = Vector2i(880, 680); min_size = Vector2i(600, 400); transient = true; exclusive = true; visible = false
+	title = "Text, media & state settings"; size = Vector2i(880, 680); min_size = Vector2i(600, 400); transient = true; exclusive = true; visible = false
 	var layout := VBoxContainer.new(); layout.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT); add_child(layout)
 	var message_scroll := ScrollContainer.new(); message_scroll.custom_minimum_size.y = 72; message_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED; layout.add_child(message_scroll)
 	message = Label.new(); message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; message.size_flags_horizontal = Control.SIZE_EXPAND_FILL; message_scroll.add_child(message)
@@ -26,7 +27,11 @@ func _ready() -> void:
 	save_button = Button.new(); save_button.name = "SaveSettings"; save_button.text = "Save settings"; save_button.pressed.connect(save_settings); row.add_child(save_button)
 	var close := Button.new(); close.text = "Close"; close.pressed.connect(_request_close); row.add_child(close)
 	discard_dialog = ConfirmationDialog.new(); discard_dialog.dialog_text = "Discard unsaved setting changes?"; discard_dialog.confirmed.connect(hide); add_child(discard_dialog)
-	creation_dialog = ConfirmationDialog.new(); creation_dialog.dialog_text = "Create a native project.godot in this content folder to store text and interaction settings?"; creation_dialog.confirmed.connect(func(): save_settings(true)); add_child(creation_dialog)
+	creation_dialog = ConfirmationDialog.new(); creation_dialog.dialog_text = "Create a native project.godot in this content folder to store text, media and state settings?"; creation_dialog.confirmed.connect(func(): save_settings(true)); add_child(creation_dialog)
+	channel_editor = preload("res://ui/components/audio_channels_editor.gd").new(); add_child(channel_editor)
+	channel_editor.channels_applied.connect(func(channels: Dictionary):
+		var field: Control = fields["audio/channel_defaults"]
+		field.control.text = var_to_str(channels); field.edited = true)
 	close_requested.connect(_request_close)
 
 func open_settings(source_workspace: RefCounted) -> void:
@@ -40,8 +45,13 @@ func open_settings(source_workspace: RefCounted) -> void:
 	for key: String in Document.DEFAULTS:
 		if key.begins_with("layout/") or key.begins_with("settings/"): continue
 		var field := Field.new(); field.name = key.replace("/", "_")
-		field.setup(key.trim_prefix("text/").replace("_", " ").capitalize(), document.values.get(key, Document.DEFAULTS[key]), {"type": typeof(Document.DEFAULTS[key])})
+		field.setup(key.replace("/", " · ").replace("_", " ").capitalize(), document.values.get(key, Document.DEFAULTS[key]), {"type": typeof(Document.DEFAULTS[key])})
 		column.add_child(field); fields[key] = field
+		if key == "audio/channel_defaults":
+			var button := Button.new(); button.name = "EditAudioChannels"; button.text = "Edit audio channels"; column.add_child(button)
+			button.pressed.connect(func():
+				var values: Variant = fields["audio/channel_defaults"].value()
+				if values is Dictionary: channel_editor.open_channels(values))
 	var label := Label.new(); label.text = "Runtime setting defaults · scalar values (including text_speed)"; label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; column.add_child(label)
 	custom = CodeEdit.new(); custom.name = "RuntimeSettings"; custom.custom_minimum_size.y = 130; column.add_child(custom)
 	var dictionary := {}
@@ -49,7 +59,7 @@ func open_settings(source_workspace: RefCounted) -> void:
 		if key.begins_with("settings/"): dictionary[key.trim_prefix("settings/")] = document.values[key]
 	if not dictionary.has("text_speed"): dictionary["text_speed"] = 1.0
 	initial_custom = var_to_str(dictionary); custom.text = initial_custom
-	message.text = "Native settings for: " + workspace.root_path + "\nInput action mappings belong to the host project; preview uses its own Advance controls."
+	message.text = "Native settings for: " + workspace.root_path + "\nAudio channels: volume (dB), audio_bus, fade_length, loop. Autosave modes: 0 jumps, 1 timer, 2 text. Preview uses its own Advance controls."
 	save_button.disabled = document.read_only
 	if document.read_only: message.text = "\n".join(document.diagnostics)
 	_popup_fitted()

@@ -122,6 +122,8 @@ func validate_content(text: String) -> Dictionary:
 		for key: String in ["style", "prefix", "suffix"]:
 			if not values.get("custom_info", {}).get(key, "") is String:
 				issues.append("Character " + key + " must be a string.")
+	var sound_error := preload("res://application/media_assets.gd").mood_error(values.get("custom_info", {}) if values.get("custom_info", {}) is Dictionary else {}, workspace)
+	if not sound_error.is_empty(): issues.append(sound_error)
 	if not valid_transform(values):
 		issues.append("Character scale must be positive and finite, offset finite Vector2, mirror boolean.")
 	var default_value: Variant = values.get("default_portrait", "")
@@ -144,6 +146,10 @@ func validate_content(text: String) -> Dictionary:
 			if not entry is Dictionary or not _supported_portrait_keys(entry) or not valid_transform(entry):
 				issues.append("Portrait '%s' has unknown properties or invalid transforms." % key)
 				continue
+			if not entry.get("sound_mood", "") is String: issues.append("Portrait sound mood must be a string.")
+			elif not entry.get("sound_mood", "").is_empty():
+				var moods: Variant = values.get("custom_info", {}).get("sound_moods", {}) if values.get("custom_info", {}) is Dictionary else {}
+				if not moods is Dictionary or not moods.has(entry.sound_mood): issues.append("Portrait references a missing sound mood: " + entry.sound_mood)
 			var scene: Variant = entry.get("scene", "")
 			var overrides: Variant = entry.get("export_overrides", {})
 			if not scene is String or not overrides is Dictionary:
@@ -222,7 +228,7 @@ static func decoded_image_path(value: String) -> String:
 
 static func _supported_portrait_keys(portrait: Dictionary) -> bool:
 	for key: Variant in portrait:
-		if not key in ["scene", "export_overrides", "scale", "offset", "mirror", "ignore_char_scale"]:
+		if not key in ["scene", "export_overrides", "scale", "offset", "mirror", "ignore_char_scale", "sound_mood"]:
 			return false
 	return true
 

@@ -1,0 +1,11 @@
+config_version=5
+
+[dialogic]
+variables={"score": 1, "name": "Visitor"}
+history/simple_history_enabled=true
+history/simple_history_save=true
+history/full_history_enabled=true
+history/full_history_save=true
+history/visited_event_history_enabled=true
+history/save_on_save=true
+save/default_slot="Demo"

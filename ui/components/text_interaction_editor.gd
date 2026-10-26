@@ -21,7 +21,7 @@ var setting_mode: OptionButton
 var value_type: OptionButton
 
 func _ready() -> void:
-	title = "Text & interaction properties"; size = Vector2i(730, 650); min_size = Vector2i(530, 400); dialog_hide_on_ok = false
+	title = "Event properties"; size = Vector2i(730, 650); min_size = Vector2i(530, 400); dialog_hide_on_ok = false
 	get_ok_button().text = "Apply"
 	var scroll := ScrollContainer.new(); scroll.custom_minimum_size = Vector2(480, 330); scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED; add_child(scroll)
 	column = VBoxContainer.new(); column.size_flags_horizontal = Control.SIZE_EXPAND_FILL; column.add_theme_constant_override("separation", 10); scroll.add_child(column)
@@ -75,6 +75,9 @@ func open_for_editor(editor: CodeEdit, content_workspace: RefCounted = null, req
 			for key: String in event.get_shortcode_parameters():
 				var property: String = event.get_shortcode_parameters()[key].property
 				_add_field(property, property.replace("_", " ").capitalize(), event.get(property))
+				if requested == "Audio" and Source.Media.FLAGS.has(property):
+					var flag: String = Source.Media.FLAGS[property]
+					_add_field(flag, "Override channel " + property.replace("_", " "), event.get(flag))
 	message = Label.new(); message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; column.add_child(message)
 	message.text = problem if not problem.is_empty() else (("Edit" if editing else "Insert") + " " + requested + " at line " + str(first_line + 1) + ". Apply is one undo operation.")
 	get_ok_button().disabled = not problem.is_empty()

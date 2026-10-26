@@ -1,4 +1,4 @@
-# PAGE Editor 0.4.0 示例
+# PAGE Editor 0.5.0 示例
 
 | 示例 | 打开方式 | 内容 |
 |---|---|---|
@@ -36,3 +36,7 @@
 ## text_style_story — 文本、样式与交互
 
 选择可写副本为内容根并打开 conversation.dtl。包括真实姓名输入、角色样式、富文本/随机文本/效果、字体/图片、等待、设置、清除与变量分支。原生资源和配置可直接移交固定参考工程。
+
+## media_state_story
+
+0.5.0 背景、音频、语音、历史和预览存档示例。选该目录为 Content Folder，打开 media_state.dtl。两个 WAV 均为生成测试音；History / Saves 提供槽管理。

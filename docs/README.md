@@ -1,8 +1,8 @@
-# PAGE Editor 0.4.0
+# PAGE Editor 0.5.0
 
 PAGE Editor 是基于 **Godot 4.7.1 / Dialogic 2.0-alpha-20** 的独立对话创作程序。发布程序可直接运行，无须打开 Godot 编辑器；Source 包用于修改与构建。
 
-本版新增 Text 全字段、富文本、原生文本效果、随机文本、样式与布局、文本设置，以及 Style / Setting / Wait / WaitInput / Clear / TextInput 的属性编辑与预览。保留 Choice、条件选项、Label、Jump、Return、End 与跨时间线流程；提供嵌套 if / elif / else 条件、对应属性编辑、标量表达式、表达式赋值与文本表达式，以及原生时间线编辑与预览、角色属性、多立绘和原生演出控制及内容目录管理。完整 Dialogic 功能按 Source 包中的版本路线图（docs/ROADMAP.md）逐步实现。
+本版新增 Background、Audio、Voice、History、Save 的属性编辑、原生读写与预览；提供角色打字声音、通道默认值、媒体设置、历史查看及预览存档。保留文本和样式、角色与立绘、变量和表达式、条件和跨时间线流程。完整 Dialogic 功能按 Source 中的 ROADMAP.md 逐步实现，实际测试状态见 RELEASE_NOTES.md。
 
 ## 运行与基础操作
 
@@ -32,7 +32,7 @@ PAGE Editor 是基于 **Godot 4.7.1 / Dialogic 2.0-alpha-20** 的独立对话创
 
 ## 当前功能与边界
 
-| 内容 | 0.4.0 范围 |
+| 内容 | 0.5.0 范围 |
 |---|---|
 | 时间线 | 原生 `.dtl` 新建、打开、编辑、保存、另存为；旁白、注释、基础角色文本 |
 | 角色 | 原生 `.dch` 新建、打开、编辑、保存；文件名标识、静态显示名称、名字颜色 |
@@ -48,11 +48,13 @@ PAGE Editor 是基于 **Godot 4.7.1 / Dialogic 2.0-alpha-20** 的独立对话创
 | 编辑辅助 | 文本编辑、角色和变量表单、单行字面查找、物理源行诊断及定位 |
 | 文本与交互 | 原生 BBCode、效果、随机文本、Text 与六类交互事件属性；运行输入、自动推进及跳过 |
 | 样式与设置 | 三种原生样式预设、布局层及公开属性、继承、字体、角色样式、文本前后缀与原生配置 |
+| 媒体与声音 | Background、Audio、Voice；角色声音 mood、通道默认值及原生音频设置 |
+| 历史与状态 | History、Save；预览历史、存档槽管理、加载后继续与内容根隔离 |
 | 运行预览 | 使用 Dialogic 运行时播放支持范围内的内容，支持推进、停止、重启与自然结束 |
 | 文件保护 | 未保存处理、外部修改冲突处理；超范围文件只读保护；非法内容或缺失依赖时阻止相应保存和预览 |
 | 产品配置 | 集中配置名称、文件名前缀、左上角 LOGO、应用图标与稳定用户数据目录；版本单独管理 |
 
-尚未提供变量文件夹、函数调用、动态角色/立绘表达式、任意自定义脚本/场景/动画、媒体、术语、翻译、完整视觉事件块编辑和完整目标工程管理。未支持的界面入口保持禁用。
+尚未提供变量文件夹、函数调用、动态角色/立绘表达式、任意自定义脚本/场景/动画、术语、翻译、完整视觉事件块编辑和完整目标工程管理。未支持的界面入口保持禁用。
 
 含未知事件或高级角色属性的既有文件采用只读保护；不会静默删除属性后保存。需要完整功能时，可在安装对应 Dialogic 版本的 Godot 工程中继续编辑这些文件。
 
@@ -88,7 +90,7 @@ leave bob
 
 `alice`、`bob` 是 `.dch` 文件名标识，显示名称可以是中文。带空格的引用标识需加双引号；`_`、`--All--` 等原生命令特殊标识不作为角色名。角色文本不自动让角色入场；使用 `join` 显示默认或指定立绘。省略位置时采用中心位置，`leave` 不带位置。
 
-把内容交给已安装 **Dialogic 2.0-alpha-20** 的 Godot 工程时，将内容根**内部**的目录复制到目标工程根，并保持相对路径。不要额外增加一层 `content/` 而不调整资源引用。合并 `[dialogic]` 中使用的 `variables`、`text/*`、`settings/*`、`layout/*` 原生键；不要用内容目录的最小 `project.godot` 覆盖目标工程的整个配置。等待 Godot 导入资源，并确认角色文件名标识唯一。自定义资源标识、批量重命名及自动修复引用不在本版范围。
+把内容交给已安装 **Dialogic 2.0-alpha-20** 的 Godot 工程时，将内容根**内部**的目录复制到目标工程根，并保持相对路径。不要额外增加一层 `content/` 而不调整资源引用。合并 `[dialogic]` 中使用的 `variables`、`text/*`、`settings/*`、`layout/*`、`audio/*`、`history/*`、`save/*` 原生键；不要用内容目录的最小 `project.godot` 覆盖目标工程的整个配置。使用自定义总线时，还需保留总线布局及项目中的原生布局路径配置。等待 Godot 导入资源，并确认角色文件名标识唯一。自定义资源标识、批量重命名及自动修复引用不在本版范围。
 
 ## 角色、多立绘与演出
 
@@ -339,9 +341,9 @@ directories/dtl_directory={"hallway": "res://timelines/hallway.dtl"}
 
 从时间线事件面板选择 Text properties、Wait、WaitInput、Clear、TextInput、Style 或 Setting。光标位于对应事件时加载当前属性，否则插入新事件；Text 支持角色、立绘和多行正文。工具栏插入标准 BBCode / 原生效果 / 随机文本标签，然后编辑参数。Apply 为一次撤销操作；打开后正文已变更时，重新打开表单再提交。
 
-原生文本支持 b/i/u/s、color、font_size、font、img、对齐、表格、列表和内置动态效果；原生处理顺序保持条件、变量、随机文本、效果等模块定义。`[n]` 分段、`[n+]` 追加、`[br]` 换行。速度 speed/lspeed、pause、input、signal、aa、ns、portrait 和 extra_data 等效果由固定插件执行。mood 标签保留原生语法；完整打字声音配置和音频事件在 0.5.0，本版不声称缺失声音已经播放。未知普通标签遵循原生显示行为；自定义 RichTextEffect 脚本在 0.7.0。
+原生文本支持 b/i/u/s、color、font_size、font、img、对齐、表格、列表和内置动态效果；原生处理顺序保持条件、变量、随机文本、效果等模块定义。`[n]` 分段、`[n+]` 追加、`[br]` 换行。速度 speed/lspeed、pause、input、signal、aa、ns、portrait 和 extra_data 等效果由固定插件执行。mood 标签和角色打字声音配置见下方媒体章节。未知普通标签遵循原生显示行为；自定义 RichTextEffect 脚本在 0.7.0。
 
-顶部 **Style** 打开独立样式窗口。可新建 Visual Novel、Text Bubbles、Speaker Textbox 预设，编辑名称、文件路径、继承和默认标记；左侧管理布局层，右侧编辑固定原生层的公开字段，Reset 移除对应覆盖值。保存为内容根内的原生 `.tres`，并更新 project.godot 的 style_list/style_directory/default_style。父样式控制继承后的层顺序；新增、删除和重排请编辑父样式。自定义脚本/场景和未知属性保留只读。媒体文件夹依赖需等待 0.5.0；自定义按钮场景等待 0.7.0。表单中的目录或资源字段不代表本版会执行未知依赖。
+顶部 **Style** 打开独立样式窗口。可新建 Visual Novel、Text Bubbles、Speaker Textbox 预设，编辑名称、文件路径、继承和默认标记；左侧管理布局层，右侧编辑固定原生层的公开字段，Reset 移除对应覆盖值。保存为内容根内的原生 `.tres`，并更新 project.godot 的 style_list/style_directory/default_style。父样式控制继承后的层顺序；新增、删除和重排请编辑父样式。自定义脚本/场景和未知属性保留只读。角色打字声音支持媒体文件夹；任意布局资源依赖仍按已实现类型检查；自定义按钮场景等待 0.7.0。表单中的目录或资源字段不代表本版会执行未知依赖。
 
 选中字体/图片路径字段后，可使用 Import font / image，将 TTF/OTF/PNG 复制到内容目录；已有文件使用新名称避免覆盖。也可填写内容根内的原生 FontFile / FontVariation / StyleBox 等受支持数据资源。预览直接读取未导入的资源，通过临时缓存供原生控件使用，临时路径不会写回内容。全局字体为空时使用随应用提供的中文回退；显式字体遵循自己的字形覆盖范围。
 
@@ -349,7 +351,7 @@ directories/dtl_directory={"hallway": "res://timelines/hallway.dtl"}
 
 **Character** 的 Style、Prefix、Suffix 字段对应 custom_info 的 style/prefix/suffix，与其他自定义信息共同保存。全局前缀是 text/dialog_text_prefix；原生没有同等全局后缀键。角色专属样式遵从原生临时切换规则。
 
-预览顶栏 **Auto / Skip** 控制当前会话。TextInput 把确认内容写入运行字符串变量，Enter 用于确认；空内容是否允许由 allow_empty 决定。WaitInput 等待新的推进输入。选择或输入不会被 Skip 自动确认。输入后的表达式和资源引用按实际运行值再次校验。Setting 的 set/reset/reset all 由原生子系统执行，预览期间临时隔离 Save，退出后恢复应用设置和资源索引，不写内容初值或全局保存文件。
+预览顶栏 **Auto / Skip** 控制当前会话。TextInput 把确认内容写入运行字符串变量，Enter 用于确认；空内容是否允许由 allow_empty 决定。WaitInput 等待新的推进输入。选择或输入不会被 Skip 自动确认。输入后的表达式和资源引用按实际运行值再次校验。Setting 的 set/reset/reset all 由原生子系统执行，预览期间使用内容根隔离的 Save 适配，退出后恢复应用设置和资源索引，不写回内容变量初值；预览保存写入专属用户存档目录。
 
 设置中的 input_action 可以原生保存，但内容工程的 InputMap 不自动导入应用；预览仍使用 Enter/Space、Advance 和点击。键盘中文输入法需真实桌面环境验证，程序化插入 Unicode 不等于输入法验证。
 
@@ -357,9 +359,44 @@ directories/dtl_directory={"hallway": "res://timelines/hallway.dtl"}
 
 Alpha 20 的 Setting 字面字符串解析不能无损保留嵌入引号或反斜杠。本版在原生往返不一致时拒绝修改，可改用字符串变量；不会修改插件来伪造兼容。
 
+0.5.0 还在全新原始参考工程中复现了事件识别顺序问题：Variable 的 `set` 前缀可能先命中 `setting`，使其误读为变量事件。PAGE 在应用层保证 Setting 优先识别；固定插件源码及原始资源字节保持，因此导入目标 Godot 工程后的该项原生互通仍有已记录限制，不能只凭 PAGE 预览成功判断目标工程已通过。
+
 完整演示见 examples/text_style_story。先复制目录到可写位置，选择为 Content Folder，打开 conversation.dtl，按 F5 播放。
 
 原生时间线正文中的冒号必须转义，包括资源 URL，例如 `[font=res\://fonts/example.ttf]Text[/font]`。Text 属性窗口的正文和资源路径字段仍输入普通 `res://`；应用生成原生源文本时会加上转义。未转义的 URL 若被原生语法识别为角色名，会显示明确诊断。
 
 
-本版保留两项原生参考边界问题：TextInput 出现后，在文本框隐藏动画结束前立即确认，可能使后续文本停在揭示状态；输入框出现后稍候再确认可通过已测正常路径。无等待的立绘切换紧接 extra_data 时，原始参考工程的两次回放出现不同结果；显式等待立绘切换完成的组合已通过。两者均未判定为已修复，具体失败和重跑记录随独立测试进度包提供。
+0.4.0 的原始参考工程验证曾记录动画尚未完成时立即确认 TextInput / WaitInput，后续文本不能自然结束，以及无等待立绘切换紧接 extra_data 时两次回放状态不同的边界。固定插件未修改，0.5.0 不把这些历史问题宣称为已修复。原生互通的常规路径等待相关动画完成后继续；本版执行状态以本版进度为准，历史失败摘要仅作问题来源，不计入本版通过数量。
+
+## 媒体、历史与状态（0.5.0）
+
+事件面板增加 **Background / Audio / Voice / History / Save**。插入后通过 Properties 修改原生字段，Apply 形成一次可撤销编辑；打开表单后源文改变，会拒绝覆盖旧选择。
+
+- Background 的 arg 支持空值清除、颜色和内容根内图片；fade、wait 和 transition 使用固定插件内置过渡。自定义背景场景/脚本在项目扩展阶段，当前明确拒绝执行。
+- Audio 支持 WAV、OGG、MP3、命名通道、单次音效、替换及停止。音量单位为 dB，负值有效。`set_*` 覆盖开关区分省略默认值与显式 `0`、`false`；sync 保持原生通道同步语义。
+- Voice 设置下一条文本的语音路径、音量和总线。History / Saves 面板的 Wait for voice 控制自动推进等待语音，Skip voice 控制自动跳过时是否开始播放语音；这两个选项含义不同。
+- Character 的 **Edit typing sounds** 管理 sound_moods/default，支持单文件或同目录音频、模式、音高、音量、方差和字符间隔。模式为 0 Interrupt、1 Overlap、2 Await；立绘 sound_mood 与 `[mood=名字]` 由原生 Text 处理。固定插件的空 `[mood=]` 不改变当前 mood；要静音可指定空 sound_path 的命名 mood。
+- Settings 编辑 `audio/type_sound_bus`、通道默认字典、七项 History 及六项 Save 设置。Edit audio channels 提供通道增删改；保存写入当前内容根的原生 project.godot，保留其他节、变量与注释。缺文件时须确认创建；外部修改时拒绝覆盖。
+
+音频总线可读取目标工程的 default_bus_layout.tres 或 audio/buses/default_bus_layout 指定文件，支持名称、路由、音量、静音、solo、bypass；带效果或外部资源的布局目前拒绝加载。预览结束恢复应用原总线。声音资产每文件最多 64 MiB，图片最多 32 MiB、单边 8192 像素、总像素 16,777,216；声音目录和 mood 各最多 256 项，原生总线最多 64 个。资源必须位于内容根内，链接和未知依赖会诊断。这些限制不构成性能承诺。
+
+### 历史与存档操作
+
+先在 Settings 启用所需历史开关，保存时间线后开始预览，点击 **History / Saves** 查看简单文本历史及完整事件历史。Save 创建槽；已有槽覆盖和 Delete 均需确认且可取消，选择槽后 Load 恢复。对话框内键盘输入不会推进时间线；关闭或加载成功后可继续 Enter / Space 推进。
+
+Save 事件省略或空 slot 遵循固定插件的 latest/default 语义；界面槽名为空则使用配置默认槽。固定原生 `Save.to_text()` 会省略显式 `Default`，再次解析后可能变为 latest；此双向边界保留在测试结果中。History 属性界面输出数值 0/1/2（Clear/Pause/Resume），避免固定解析器将大写 Pause/Resume 解析为 0。固定版本的 simple_history_save/full_history_save 不控制完整状态中两个历史数组的导出；关闭这两个开关不能作为不保存历史的保证。
+
+预览槽保存在应用 `user://preview_saves/<内容根绝对路径的 SHA256>/`，不会写入目标内容目录或覆盖目标游戏存档。支持同一位置、同版本、未变更内容的跨进程恢复。源码/内容依赖变化或移动内容根时会拒绝误恢复；草稿不能保存持久槽。保存使用临时槽、旧槽回退和完整性校验；损坏文件、路径越界和伪造校验拒绝加载。完整性密钥和槽一起属于该用户目录，单独复制 state.txt 不构成可移植存档。
+
+预览使用原生 DialogicSaveState 及子系统状态，并把临时路径转换为稳定内容引用。该引用适配是 PAGE 预览专用，**不能将预览存档文件直接当作目标游戏存档**。恢复涵盖原生保存的变量、位置、Jump 栈、立绘、样式、背景、音频和历史；音频精确播放时刻、半字揭示进度等不超出固定插件承诺。加密沿用原生密码与仅导出加密设置，不构成额外密码保护承诺。
+
+预览适配层避开原生变量 `name` 对 Node 元数据属性的遮蔽，并清理关闭时的音量补间。适配不修改 Dialogic 插件文件；参考工程的差异和失败记录仍如实保存。
+
+示例：复制 `examples/media_state_story/`，选为 Content Folder，打开 `media_state.dtl`。tone.wav 和 voice.wav 均为生成测试音，分别供音乐和语音演示；不是人声录音。
+
+修改加密密码或“仅导出加密”策略不会自动迁移已有存档及全局索引。同一内容根已有不同格式的索引时，写入可能被拒绝；恢复原加密设置后使用原槽，或使用独立内容副本验证新策略。
+
+
+## 较大字体文本资源的等待
+
+包含大量数值字节的 `FontFile.tres` 加载时可能让界面明显等待。本版真实导出程序样本使用171272字节字体数据的数值 PackedByteArray 表示，从按下 F5 到自动检测到首条预览约27秒（含观察开销）；随后编辑、保存、重开及六条资源预览均完成，输入资源字节不变。这是当前虚拟显示环境中的样本观察，不是性能保证。适用的文本资源与资产大小限制仍按前文执行。
