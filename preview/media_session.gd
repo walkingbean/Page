@@ -118,6 +118,7 @@ func normalize(text: String) -> String:
 func fingerprint() -> String:
 	if workspace == null: return ""
 	var items := PackedStringArray()
+	if ProjectSettings.get_setting("dialogic/translation/enabled", false): items.append("@preview_locale:" + TranslationServer.get_locale())
 	var queue: Array[String] = [workspace.root_path]
 	var count := 0
 	while not queue.is_empty():

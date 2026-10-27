@@ -198,6 +198,13 @@ func _begin(timeline: DialogicTimeline, generation: int, textures: Array[Resourc
 	for item: DialogicTimeline in all_timelines:
 		for event: DialogicEvent in item.events:
 			if event is DialogicStyleEvent: event.style_name = _presentation.remap_style_reference(event.style_name)
+	_localization = preload("res://preview/localization_session.gd").new()
+	if _localization.begin(_handler, _workspace, preview_locale, self) != OK:
+		last_error = _localization.last_error; _status.text = last_error; _starting = false; _restart_button.disabled = false; _restore_resources(); return
+	_locale_picker.clear()
+	for locale: String in _localization.locales:
+		_locale_picker.add_item(locale)
+		if locale == TranslationServer.get_locale(): _locale_picker.select(_locale_picker.item_count - 1)
 	_media = preload("res://preview/media_session.gd").new()
 	if _media.begin(self, _handler, _workspace, timeline, _presentation) != OK:
 		last_error = _media.last_error; _status.text = last_error; _starting = false; _restart_button.disabled = false; _restore_resources(); return
@@ -246,6 +253,7 @@ func _clear_runtime() -> void:
 	# Preserve application history until the media session can snapshot it.
 	# Active sessions restore their own snapshot in _restore_resources().
 	var idle_history := {}
+	var idle_glossaries: Array = _handler.Glossary.glossaries.duplicate() if _localization == null else []
 	if _media == null:
 		for field: String in ["simple_history_content", "full_event_history_content"]:
 			idle_history[field] = _handler.History.get(field).duplicate(true)
@@ -276,6 +284,7 @@ func _clear_runtime() -> void:
 	# DialogicTimeline.clean() waits one frame; awaiting it prevents an older
 	# cleanup coroutine from wiping the next preview's timeline.
 	await _handler.clear(DialogicGameHandler.ClearFlags.FULL_CLEAR)
+	if _localization == null: _handler.Glossary.glossaries = idle_glossaries
 	# Native Backgrounds.clear() returns early when no holder remains. Reset
 	# its identity explicitly so a new preview using the same color creates
 	# a real background instead of taking the native unchanged-value shortcut.
@@ -346,6 +355,7 @@ func _prepare_portraits(timeline: DialogicTimeline, workspace: RefCounted, gener
 
 
 func _restore_resources() -> void:
+	if _localization != null: _localization.restore(); _localization = null
 	if _media != null: _media.restore()
 	if _presentation != null:
 		_presentation.restore()
@@ -403,10 +413,13 @@ func _on_window_input(event: InputEvent) -> void:
 	var key := event as InputEventKey
 	if not key.pressed or key.echo:
 		return
+	if is_instance_valid(_locale_picker) and _locale_picker.get_popup().visible: return
 	if key.keycode in [KEY_ESCAPE, KEY_F6]:
 		set_input_as_handled()
 		stop_preview()
 	elif (is_instance_valid(_state_panel) and _state_panel.visible) or _text_input_visible():
+		return
+	elif is_instance_valid(_locale_picker) and _locale_picker.has_focus() and key.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE]:
 		return
 	elif key.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE] and _handler.current_state != _handler.States.AWAITING_CHOICE:
 		set_input_as_handled()
@@ -471,6 +484,10 @@ func _on_timeline_ended() -> void:
 	preview_finished.emit()
 
 
+var _localization: RefCounted
+var _locale_picker: OptionButton
+var preview_locale := ""
+
 func _build_chrome() -> void:
 	var background := ColorRect.new()
 	background.color = Color("202126")
@@ -509,6 +526,10 @@ func _build_chrome() -> void:
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_status.add_theme_font_size_override("font_size", 14)
 	row.add_child(_status)
+	_locale_picker = OptionButton.new(); _locale_picker.name = "PreviewLocale"; _locale_picker.tooltip_text = "Change language and restart this preview"; row.add_child(_locale_picker)
+	# Fixed 4.7.1 release templates mis-handle embedded Popup signal cleanup.
+	preload("res://ui/components/native_popup.gd").configure(_locale_picker)
+	_locale_picker.item_selected.connect(func(index: int): preview_locale = _locale_picker.get_item_text(index); restart())
 	_advance_button = Button.new()
 	_advance_button.text = "Advance"
 	_advance_button.focus_mode = Control.FOCUS_NONE
@@ -623,9 +644,11 @@ func _runtime_problem(timeline: DialogicTimeline, index: int) -> String:
 		var prefix: String = ProjectSettings.get_setting("dialogic/text/dialog_text_prefix", "")
 		var suffix := ""
 		if event.character != null:
+			var name_check := preload("res://application/text_variables.gd").inspect(event.character.get_display_name_translated(), _workspace, values, true)
+			if name_check.has("error"): return "Translated character name: " + name_check.error
 			prefix += str(event.character.custom_info.get("prefix", ""))
 			suffix = str(event.character.custom_info.get("suffix", ""))
-		check = Codec.INLINE.inspect(prefix + event.text + suffix, _workspace, values, true)
+		check = Codec.INLINE.inspect(prefix + event.get_property_translated("text") + suffix, _workspace, values, true)
 		if not check.has("error"):
 			# Native playback clones point to scoped cache scenes. Validate the
 			# content resource that produced this exact registered clone instead.
@@ -666,6 +689,14 @@ func _runtime_problem(timeline: DialogicTimeline, index: int) -> String:
 			check = Codec.FLOW.inspect(option.event_node_as_text, option, _workspace, values, true)
 			if check.has("error"):
 				return "Choice at line %d: %s" % [timeline.get_meta("source_lines")[choice_index], check.error]
+			for property: String in ["text", "disabled_text"]:
+				var translated: String = option.get_property_translated(property)
+				check = Codec.INLINE.inspect(translated.replace("\\|", "|"), _workspace, values, false)
+				if check.has("error"): return "Translated choice at line %d: %s" % [timeline.get_meta("source_lines")[choice_index], check.error]
+			var condition := {"value": true} if option.condition.is_empty() else preload("res://application/scalar_expression.gd").inspect(option.condition, values, true, false)
+			var shown := "text" if condition.get("value", false) or option.disabled_text.is_empty() else "disabled_text"
+			check = Codec.INLINE.inspect(option.get_property_translated(shown).replace("\\|", "|"), _workspace, values, true)
+			if check.has("error"): return "Translated choice at line %d: %s" % [timeline.get_meta("source_lines")[choice_index], check.error]
 	return ""
 
 
@@ -775,6 +806,10 @@ func _prepare_native_choices() -> void:
 
 func report_save_error(message: String) -> void:
 	_status.text = "Preview save: " + message
+
+func report_localization_error(message: String) -> void:
+	last_error = message
+	_status.text = message
 
 func restore_saved_state(state: DialogicSaveState) -> void:
 	if _media == null: return

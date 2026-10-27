@@ -144,7 +144,7 @@ func load_file(slot_name: String, file_name: String, default: Variant) -> Varian
 	if not _safe(path) or not _safe(path + ".sha256"): last_error = "Linked save files are not followed."; return default
 	var receipt := ConfigFile.new()
 	if receipt.load(path + ".sha256") != OK or receipt.get_value("save", "sha256", "") != FileAccess.get_sha256(path): last_error = "Save is missing, damaged or was changed externally."; return default
-	if receipt.get_value("save", "content", "") != session.content_fingerprint: last_error = "The save belongs to different content. Restore the matching content before loading."; return default
+	if receipt.get_value("save", "content", "") != session.content_fingerprint: last_error = "The save belongs to different content or preview language. Restore the matching content and language before loading."; return default
 	var signature := _signature(receipt.get_value("save", "sha256", ""), session.content_fingerprint, false)
 	if signature.is_empty() or signature != receipt.get_value("save", "signature", ""): last_error = "Save authentication failed. Only this application's own preview saves may be loaded."; return default
 	var password := get_encryption_password()

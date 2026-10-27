@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="DialogicGlossary" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://addons/dialogic/Modules/Glossary/glossary_resource.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+entries = {
+"月球": {
+"name": "月球",
+"alternatives": ["明月"],
+"title": "月球",
+"text": "[b]月球[/b]是地球的天然卫星。",
+"extra": "把鼠标移到术语上查看说明。",
+"color": Color(0.56078434, 0.827451, 0.9372549, 1),
+"enabled": true,
+"case_sensitive": true,
+&"_translation_id": "19"
+},
+"明月": "月球"
+}
+enabled = true
+_translation_id = "18"
+_translation_keys = {
+"月球": "Glossary/18/19/name",
+"Moon": "Glossary/18/19/name",
+"月": "Glossary/18/19/name",
+"明月": "Glossary/18/19/alternatives",
+"Luna": "Glossary/18/19/alternatives",
+"お月様": "Glossary/18/19/alternatives"
+}
+

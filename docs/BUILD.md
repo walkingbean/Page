@@ -1,4 +1,4 @@
-# PAGE Editor 0.5.0 构建与发布
+# PAGE Editor 0.6.0 构建与发布
 
 ## 构建条件
 
@@ -31,7 +31,7 @@ builds/windows/PAGE_Editor.exe
 builds/linux/PAGE_Editor.x86_64
 ```
 
-Windows 产品名和文件描述为 `PAGE Editor`，文件与产品数字版本为 `0.5.0.0`。应用版本为 `0.5.0`。修改集中配置或 SVG 后应重新导出程序，仅改压缩包名不会修改 EXE 内的产品资源。
+Windows 产品名和文件描述为 `PAGE Editor`，文件与产品数字版本为 `0.6.0.0`。应用版本为 `0.6.0`。修改集中配置或 SVG 后应重新导出程序，仅改压缩包名不会修改 EXE 内的产品资源。
 
 两个预设均将 PCK 嵌入可执行程序；不必在程序旁另放 PCK。程序未代码签名。构建需要匹配模板，使用发布包运行应用不需要安装 Godot。
 
@@ -49,9 +49,9 @@ python3 tools/package_release.py --output /absolute/path/to/deliverables
 
 | 文件 | 包内根目录或程序 |
 |---|---|
-| `PAGE_Editor_0.5.0_Source.zip` | `PAGE_Editor_v0.5.0/` |
-| `PAGE_Editor_0.5.0_Windows_x86_64.zip` | `PAGE_Editor_0.5.0_Windows_x86_64/PAGE_Editor.exe` |
-| `PAGE_Editor_0.5.0_Linux_x86_64.zip` | `PAGE_Editor_0.5.0_Linux_x86_64/PAGE_Editor.x86_64` |
+| `PAGE_Editor_0.6.0_Source.zip` | `PAGE_Editor_v0.6.0/` |
+| `PAGE_Editor_0.6.0_Windows_x86_64.zip` | `PAGE_Editor_0.6.0_Windows_x86_64/PAGE_Editor.exe` |
+| `PAGE_Editor_0.6.0_Linux_x86_64.zip` | `PAGE_Editor_0.6.0_Linux_x86_64/PAGE_Editor.x86_64` |
 
 打包工具先在临时目录准备完整三份构建交付文件，再以拒绝覆盖的方式写入交付目录；遇到已有文件、缺少程序或文档时明确失败。工具在控制台输出实际三份压缩包的大小与 SHA256；交付回答和 RECORD 保存这些信息；不把包哈希回写进包内文档，不计算自身循环哈希。
 
@@ -111,11 +111,11 @@ user_data_directory="dialogic-standalone-editor"
 | `app_icon_svg` | 应用图标与 Home 按钮图标 SVG，与横向 LOGO 分开配置；建议使用 256×256 方形画布 |
 | `user_data_directory` | 稳定的用户数据目录标识，字符限制同 `artifact_stem`；单纯调整显示名称时保持不变 |
 
-版本来自 **`VERSION.txt`**，本版内容为 `0.5.0`；平台数字版本同步为 `0.5.0.0`。
+版本来自 **`VERSION.txt`**，本版内容为 `0.6.0`；平台数字版本同步为 `0.6.0.0`。
 
 具体操作：
 
-1. 解压 Source，进入包含 `project.godot` 的 `PAGE_Editor_v0.5.0/`。打开 `config/branding.cfg`。
+1. 解压 Source，进入包含 `project.godot` 的 `PAGE_Editor_v0.6.0/`。打开 `config/branding.cfg`。
 2. 修改 `project_name` 和 `artifact_stem`。只调整显示名称时保持 `user_data_directory` 不变，避免改变用户数据位置。
 3. 替换 `asset/branding/page-logo.svg`，或把新 SVG 放到 `asset/branding/` 并更新 `logo_svg`。必须是真实 SVG XML；建议透明背景、适配深色主题、文字转为轮廓。文件不得超过 2 MiB，不可放在导出排除的 `docs/`、`tools/`、`examples/`、`tests/` 或 `builds/` 中。
 4. 如需修改应用图标，替换 `asset/branding/page-icon.svg` 或更新 `app_icon_svg`。横向 LOGO 与应用图标用途不同；替换一个不自动替换另一个。
@@ -137,6 +137,12 @@ Godot 导出时会处理 SVG 纹理，程序支持源码 SVG 与导出纹理。�
 
 0.5.0 增加运行时媒体解码与预览状态适配，仍使用相同 Godot 导出模板，不增加系统编解码器依赖。QA 使用的 ffmpeg、Xvfb、OCR 工具不随产品分发，实际发布程序无需它们。
 
-## 本次观察到的原生导入异常
+## 0.5.0 观察到的原生导入异常
 
-一次全新目录导入在开始处理 `NotoSansCJKsc-Regular.otf` 时以信号11退出；后续导出立即停止。源码、驱动和命令均未改动，新目录的完整重跑及之后三次全新构建通过。根因未定位，不能据此宣称引擎问题已修复。构建时应检查每一步返回码和日志；出现原生崩溃时保留日志，不沿用失败导入结果继续导出。原记录见独立测试进度691及692–697相关用例。
+一次全新目录导入在开始处理 `NotoSansCJKsc-Regular.otf` 时以信号11退出；后续导出立即停止。源码、驱动和命令均未改动，新目录的完整重跑及之后三次全新构建通过。根因未定位，不能据此宣称引擎问题已修复。构建时应检查每一步返回码和日志；出现原生崩溃时保留日志，不沿用失败导入结果继续导出。原记录见 0.5.0 独立测试进度691及692–697相关用例。本版新增术语与多语言，构建条件保持相同；本版实际构建日志由 0.6.0 独立进度包记录。
+
+## 0.6.0 本版构建观察
+
+本版执行 583 从全新目录导入 `NotoSansCJKsc-Regular.otf` 时打印 `malloc(): corrupted top size`，进程以 -11 退出；该次立即停止后续步骤。执行 594 在同一产品源码的新目录完整重跑品牌用例，通过 96 项断言；执行 595 从 Source 包全新解压，完成导入、品牌同步、Windows/Linux 导出、打包和清单核对，通过 73 项断言。原始失败及成功重跑均保留，未修改固定引擎，根因仍未确认。
+
+执行 591 的导入、双平台导出和打包已经成功，但随后检查工具遗留的 482 条数量断言拒绝了本版 533 条清单。修正的是 QA 数量断言，同时仍要求与编码前保存的全部独立定义完全一致；执行 595 从头重跑验证。

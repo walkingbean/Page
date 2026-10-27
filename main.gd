@@ -20,6 +20,8 @@ var workspace: RefCounted = null
 var has_document := false
 var has_character := false
 var active_mode := "timeline"
+var glossary_editor: Window
+var translation_editor: Window
 var styles_editor: Window
 var settings_editor: Window
 var character_editor: Control
@@ -98,6 +100,20 @@ func _ready() -> void:
 		button.pressed.connect(func(): _request_transition(func(): _with_workspace(func():
 			if item == "Layouts": styles_editor.open_styles(workspace)
 			else: settings_editor.open_settings(workspace))))
+	glossary_editor = preload("res://ui/components/glossary_editor.gd").new()
+	glossary_editor.name = "GlossaryEditor"; add_child(glossary_editor)
+	glossary_editor.saved.connect(_refresh_workspace)
+	var glossary_button: Button = tabs.get_node("Glossary")
+	glossary_button.disabled = false; glossary_button.tooltip_text = "Edit native glossary resources"
+	glossary_button.add_theme_stylebox_override("normal", tabs.get_node("Timeline").get_theme_stylebox("normal"))
+	glossary_button.pressed.connect(func(): _request_transition(func(): _with_workspace(func(): glossary_editor.open_glossaries(workspace))))
+	translation_editor = preload("res://ui/components/translation_editor.gd").new()
+	translation_editor.name = "TranslationEditor"; add_child(translation_editor)
+	translation_editor.saved.connect(_refresh_localized_workspace)
+	var translation_button := Button.new(); translation_button.name = "Translations"; translation_button.text = "Translate"
+	translation_button.add_theme_stylebox_override("normal", tabs.get_node("Timeline").get_theme_stylebox("normal"))
+	tabs.add_child(translation_button); tabs.move_child(translation_button, tabs.get_node("Settings").get_index())
+	translation_button.pressed.connect(func(): _request_transition(func(): _with_workspace(func(): translation_editor.open_translations(workspace))))
 	_build_content_bar()
 	character_editor = CharacterEditor.new()
 	character_editor.name = "CharacterEditor"
@@ -657,6 +673,14 @@ func _open_workspace(path: String) -> void:
 		pending_workspace_action = Callable()
 		action.call()
 
+
+func _refresh_localized_workspace() -> void:
+	_refresh_workspace()
+	# ID generation can update the clean, currently open document on disk.
+	if has_document and not document.dirty and not document.path.is_empty():
+		if document.open_file(document.path) == OK: _show_document()
+	if has_character and not character_document.dirty and not character_document.path.is_empty():
+		if character_document.open_file(character_document.path, workspace) == OK: _show_character()
 
 func _refresh_workspace(show_errors: bool = true, reload_variables: bool = true) -> void:
 	_sync_document_from_editor()

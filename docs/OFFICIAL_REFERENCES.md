@@ -1,4 +1,4 @@
-# PAGE Editor 0.5.0 官方资料
+# PAGE Editor 0.6.0 官方资料
 
 本版兼容目标固定为 Godot 4.7.1 / Dialogic 2.0-alpha-20。开发细节对照指定版本源码；在线文档用于补充与核对，不自动改变兼容目标。
 
@@ -128,4 +128,19 @@ Godot 官方 [BBCode 文档](https://docs.godotengine.org/en/stable/tutorials/ui
 
 固定源码：Modules/Background、Audio、Voice、History、Save、Text/node_type_sounds.gd，Core/DialogicGameHandler.gd、DialogicSaveState 资源与 Variable/subsystem_variables.gd。网页描述与固定代码不同时，以随包 Alpha 20 为兼容依据。已保留 History 保存开关、大小写动作、Save Default 序列化等差异；详细证据在独立测试进度包。存档适配保持原生子系统 API，但稳定资源引用与完整性验证属于 PAGE 预览环境。
 
-0.5.0 补充核对固定源码 `DialogicResourceUtil.gd` 的事件索引顺序、`Variable/event_variable.gd` 的 `set` 前缀识别及 `Settings/event_setting.gd` 的 `setting` 识别。原始参考工程在执行614中复现前者先命中；PAGE 应用层调整顺序的执行506通过，原生差异仍保留。背景生命周期另核对 `Background/subsystem_backgrounds.gd`：无布局 holder 时清理提前返回，身份字段不会重置；PAGE 在移除布局前取消过渡，原生清理后明确清空身份，执行547–551验证实际节点、像素与关闭/重启。以上均以随附固定源码和本版实际执行为依据，未修改插件。
+0.5.0 补充核对固定源码 `DialogicResourceUtil.gd` 的事件索引顺序、`Variable/event_variable.gd` 的 `set` 前缀识别及 `Settings/event_setting.gd` 的 `setting` 识别。原始参考工程在执行614中复现前者先命中；PAGE 应用层调整顺序的执行506通过，原生差异仍保留。背景生命周期另核对 `Background/subsystem_backgrounds.gd`：无布局 holder 时清理提前返回，身份字段不会重置；PAGE 在移除布局前取消过渡，原生清理后明确清空身份，执行547–551验证实际节点、像素与关闭/重启。以上为 0.5.0 的历史核对记录，未修改插件；0.6.0 的对应结果以本版独立测试进度为准，不复用这些通过状态。
+
+## 0.6.0 术语与多语言核对（2026-10-27）
+
+- [Dialogic Translation](https://docs.dialogic.pro/translation.html)：稳定标识、CSV、原文语言与收集流程。
+- [Dialogic Glossary](https://docs.dialogic.pro/glossary.html)：术语、别名和翻译后的高亮/弹窗。
+- [Godot Internationalizing games](https://docs.godotengine.org/en/stable/tutorials/i18n/internationalizing_games.html)：locale、Translation、CSV 与回退。
+
+固定源码位置：Resources/event.gd、Resources/character.gd、Editor/Settings/CoreSettingsPages/settings_translation.gd、Modules/Glossary/glossary_resource.gd 与 subsystem_glossary.gd，以及 Godot core/string/translation_server.cpp。线上 Glossary 文档将 entries 描述为 Array，但固定 alpha-20 的 `@export var entries := {}` 实际是 Dictionary，别名以字符串指向主条目。本版采用固定字典结构。Character._translation_id 没有 @export，Resource.duplicate 不自动保留它，编辑候选和运行副本均显式复制。昵称的原生译文分隔符是逗号加空格，术语 alternatives 使用逗号。
+
+Godot 4.7.1 内部的 fallback getter/setter 未向 GDScript 暴露。PAGE 预览用会话 Translation 副本合并原文回退消息并恢复宿主翻译资源；收集到目标工程时登记原生 internationalization/locale/fallback。未修改固定插件来绕开差异。逐资源 CSV 的原生命名对同名文件可能冲突，PAGE 明确拒绝冲突，保留原文件。
+
+
+## 固定引擎的弹出菜单差异
+
+提供的 Godot 4.7.1 源码 `scene/gui/popup.cpp`、`scene/gui/option_button.cpp` 与 `scene/main/window.cpp` 用于核对 Popup 可见父窗口连接、原生窗口选项与坐标转换。本版最小复现分别运行编辑器引擎和 release 模板：嵌入式 Popup 在 release 模板关闭时记录重复断开连接错误，原生 Popup 没有此错误。应用只对本版新增的五个下拉菜单使用原生 Popup，并将按钮坐标转换到桌面坐标，保留屏幕边界限制。未修改固定引擎或 Dialogic 插件。具体复现、失败和实际成品界面证据在独立进度包中。

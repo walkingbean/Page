@@ -1,0 +1,15 @@
+{
+"@path": "res://addons/dialogic/Resources/character.gd",
+"@subpath": NodePath(""),
+&"_translation_id": "17",
+&"color": Color(0.56078434, 0.827451, 0.9372549, 1),
+&"custom_info": {},
+&"default_portrait": "",
+&"description": "A multilingual guide",
+&"display_name": "小星",
+&"mirror": false,
+&"nicknames": ["星星", "向导"],
+&"offset": Vector2(0, 0),
+&"portraits": {},
+&"scale": 1.0
+}

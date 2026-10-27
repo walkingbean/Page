@@ -1,0 +1,16 @@
+config_version=5
+
+[application]
+config/name="PAGE multilingual example"
+
+[dialogic]
+translation/enabled=true
+translation/original_locale="zh_CN"
+translation/translation_folder="res://translations"
+glossary/glossary_files=["res://glossary.tres"]
+translation/id_counter=25
+translation/locales=Array[String](["zh_CN", "en", "ja"])
+
+[internationalization]
+locale/translations=PackedStringArray("res://translations/dialogic_timeline_translations.zh_CN.translation", "res://translations/dialogic_timeline_translations.en.translation", "res://translations/dialogic_timeline_translations.ja.translation", "res://translations/dialogic_glossary_translations.zh_CN.translation", "res://translations/dialogic_glossary_translations.en.translation", "res://translations/dialogic_glossary_translations.ja.translation", "res://translations/dialogic_character_translations.zh_CN.translation", "res://translations/dialogic_character_translations.en.translation", "res://translations/dialogic_character_translations.ja.translation")
+locale/fallback="zh_CN"

@@ -46,6 +46,7 @@ static func inspect(raw: String, event: DialogicEvent, workspace: RefCounted = n
 
 
 static func choice(raw: String, workspace: RefCounted = null, values: Variant = null, evaluate: bool = false) -> Dictionary:
+	if "#id:" in raw: raw = raw.get_slice("#id:", 0).strip_edges(false, true)
 	var native := DialogicChoiceEvent.new()
 	var found := native.regex.search(raw)
 	if not raw.begins_with("- ") or found == null or found.get_start() != 0 or found.get_end() != raw.length():

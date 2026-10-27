@@ -1,4 +1,4 @@
-# PAGE Editor 0.0.3 字符串变量示例
+# PAGE Editor 0.6.0 字符串变量示例
 
 1. 把本目录复制到可写位置。
 2. 在 PAGE Editor 中将本目录选择为 **Content Folder**。

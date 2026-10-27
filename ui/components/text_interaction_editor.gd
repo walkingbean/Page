@@ -11,6 +11,7 @@ var last_line := 0
 var prefix := ""
 var editing := false
 var current_kind := "Text"
+var translation_id := ""
 var column: VBoxContainer
 var fields: Dictionary = {}
 var text_body: TextEdit
@@ -45,6 +46,10 @@ func open_for_editor(editor: CodeEdit, content_workspace: RefCounted = null, req
 	fields.clear(); text_body = null; speaker = null; portrait = null; setting_mode = null; value_type = null
 	get_ok_button().disabled = false
 	var problem := ""
+	translation_id = ""
+	if selected != null and selected.can_be_translated() and "#id:" in selected_raw:
+		translation_id = selected_raw.get_slice("#id:", 1).strip_edges()
+		selected_raw = selected_raw.get_slice("#id:", 0)
 	if requested == "Text":
 		speaker = line("Character · blank for narration", "TextCharacter")
 		portrait = line("Portrait · blank uses current/default", "TextPortrait")
@@ -113,6 +118,7 @@ func _apply() -> void:
 		var runtime: Dictionary = workspace.variable_document.runtime_values() if workspace != null and workspace.variable_document != null else {}
 		var checked := Source.inspect(raw, Source.create(current_kind), workspace, runtime, false)
 		if checked.has("error"): message.text = checked.error; return
+	if current_kind == "Text" and not translation_id.is_empty(): raw += " #id:" + translation_id
 	var inserted := prefix + raw.replace("\n", "\n" + prefix)
 	var lines := original_source.split("\n")
 	var candidate := PackedStringArray()

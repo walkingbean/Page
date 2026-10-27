@@ -12,6 +12,7 @@ var source_editor: CodeEdit
 var original_source := ""
 var source_line := 0
 var editing := false
+var translation_id := ""
 var prefix := ""
 
 
@@ -84,6 +85,10 @@ func open_for_editor(editor: CodeEdit) -> void:
 	extra_data.text = "{}"
 	get_ok_button().disabled = false
 	message.text = "Insert a choice with a branch. Use \\| for a literal pipe. Existing neighboring branches are preserved."
+	translation_id = ""
+	if editing and "#id:" in raw:
+		translation_id = raw.get_slice("#id:", 1).strip_edges()
+		raw = raw.get_slice("#id:", 0).strip_edges(false, true)
 	if editing:
 		var native := DialogicChoiceEvent.new()
 		var found := native.regex.search(raw)
@@ -137,6 +142,7 @@ func _apply() -> void:
 	if parsed.text != native.text or parsed.condition != native.condition or parsed.else_action != native.else_action or parsed.disabled_text != native.disabled_text or parsed.extra_data != native.extra_data:
 		message.text = "The native parser would change a property. Correct its quoting or escaping before applying."
 		return
+	if not translation_id.is_empty(): raw += " #id:" + translation_id
 	var insertion := prefix + raw
 	if not editing:
 		var structure := Structure.scan(original_source, DialogicResourceUtil.get_event_cache())

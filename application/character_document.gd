@@ -46,6 +46,7 @@ func update_fields(display_name: String, color: Color, image_path: String = "", 
 	if read_only:
 		return _fail(ERR_UNAVAILABLE, "This character contains unsupported properties and remains read-only.")
 	var candidate: DialogicCharacter = character.duplicate(true) if character != null else DialogicCharacter.new()
+	if character != null: candidate._translation_id = character._translation_id
 	candidate.display_name = display_name
 	candidate.color = color
 	if details.has("portraits"):
@@ -99,8 +100,8 @@ func validate_content(text: String) -> Dictionary:
 	for key: Variant in values:
 		if not (key is String or key is StringName) or not defaults.has(key):
 			issues.append("Unknown character property: " + str(key))
-	if values.get("_translation_id", "") != "":
-		issues.append("Character translation metadata requires a later version.")
+	if not values.get("_translation_id", "") is String or (values.get("_translation_id", "") != "" and RegEx.create_from_string("^[0-9a-fA-F]+$").search(values["_translation_id"]) == null):
+		issues.append("Character translation ID must be a native hexadecimal string.")
 	var name_value: Variant = values.get("display_name", "")
 	var color_value: Variant = values.get("color", Color())
 	if not name_value is String or not plain_name(name_value, true):
@@ -177,7 +178,7 @@ func validate_content(text: String) -> Dictionary:
 	var result_character: DialogicCharacter = null
 	if issues.is_empty():
 		result_character = DialogicCharacter.new()
-		for key: String in ["display_name", "color", "nicknames", "description", "custom_info", "scale", "offset", "mirror", "default_portrait", "portraits"]:
+		for key: String in ["display_name", "color", "nicknames", "description", "custom_info", "scale", "offset", "mirror", "default_portrait", "portraits", "_translation_id"]:
 			result_character.set(key, values.get(key, defaults[key]))
 	return {"supported": issues.is_empty(), "diagnostics": issues, "character": result_character, "portrait_path": image_path}
 

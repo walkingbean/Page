@@ -1,4 +1,4 @@
-# PAGE Editor 0.5.0 示例
+# PAGE Editor 0.6.0 示例
 
 | 示例 | 打开方式 | 内容 |
 |---|---|---|
@@ -40,3 +40,7 @@
 ## media_state_story
 
 0.5.0 背景、音频、语音、历史和预览存档示例。选该目录为 Content Folder，打开 media_state.dtl。两个 WAV 均为生成测试音；History / Saves 提供槽管理。
+
+## localization_story（0.6.0）
+
+中英日原文和译文、角色、术语与别名示例。复制到可写目录，选择其为 Content Folder，打开 story.dtl；通过 Translate 检查 CSV，通过 Glossary 编辑术语，在预览顶部切换语言。

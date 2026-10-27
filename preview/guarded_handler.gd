@@ -3,6 +3,12 @@ extends "res://addons/dialogic/Core/DialogicGameHandler.gd"
 ## The original event implementations remain unchanged. Preview checks happen
 ## before their deferred execution, using the current branch's runtime values.
 var preview_guard: Callable
+var preview_localization: Callable
+
+
+func clear(clear_flags := ClearFlags.FULL_CLEAR) -> void:
+	await super.clear(clear_flags)
+	if preview_localization.is_valid(): preview_localization.call()
 
 
 func handle_event(event_index: int) -> void:

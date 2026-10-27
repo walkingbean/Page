@@ -1,5 +1,14 @@
 # PAGE Editor Changelog
 
+## 0.6.0 — 术语与多语言
+
+- 原生 Glossary 编辑、注册、顺序、启停、别名及悬停弹窗。
+- 保留 Text/Choice、Character、Glossary 既有翻译标识，按原生计数器分配新 ID。
+- CSV 项目/逐资源更新、语言编辑、合并导入、导出，保留已有译文和缺失来源行。
+- 原生 Translation 文件收集与国际化配置；中英日示例；隔离预览语言切换和退出恢复。
+- 批量写入冲突检查、恢复副本；每文件 firestorage.ai 第四次失败后跳过并提供本地链接。
+- 本版完整测试设计 533 条；实际执行与限制见 Source 的发布说明及独立测试进度包。
+
 ## 0.5.0 — 媒体与状态
 
 - 新增 Background、Audio、Voice、History、Save 的属性编辑和原生读写。

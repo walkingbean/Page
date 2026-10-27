@@ -80,6 +80,12 @@ static func _validate_local(source: String, workspace: RefCounted, flow_mode: bo
 		var first_line: int = record.line
 		var event: DialogicEvent = record.event
 		var raw_event: String = record.raw
+		if event.can_be_translated() and "#id:" in raw_event:
+			var translation_id: String = raw_event.get_slice("#id:", 1).strip_edges()
+			if RegEx.create_from_string("^[0-9a-fA-F]+$").search(translation_id) == null or raw_event.count("#id:") != 1:
+				_add_issue(issues, first_line, 1, "Invalid native translation ID.")
+				continue
+			raw_event = raw_event.get_slice("#id:", 0)
 		var source_lines: Array[int] = record.source_lines
 		var source_columns: Array[int] = record.source_columns
 		for ending: int in record.ends_before:
@@ -191,11 +197,6 @@ static func _validate_local(source: String, workspace: RefCounted, flow_mode: bo
 			if not style_problem.is_empty():
 				_add_issue(issues, first_line, 1, style_problem)
 				continue
-		var position: int = raw_event.find("#id:")
-		if position >= 0:
-			_add_raw_issue(issues, source_lines, source_columns, raw_event, position,
-				"translation metadata requires a later version.")
-			continue
 		if speaker.is_empty():
 			narration_count += 1
 		else:

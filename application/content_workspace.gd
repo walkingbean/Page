@@ -115,6 +115,7 @@ func runtime_characters() -> Dictionary:
 		if has_character(identifier):
 			var original: DialogicCharacter = characters[identifier]["resource"]
 			var clone: DialogicCharacter = original.duplicate(true)
+			clone._translation_id = original._translation_id
 			result[identifier] = clone
 	return result
 
