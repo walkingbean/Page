@@ -31,6 +31,8 @@ def files_under(folder):
             continue
         if any(part in SOURCE_EXCLUSIONS for part in relative.parts):
             continue
+        if relative.as_posix() == "runtime/native_runtime.zip":
+            continue
         if path.name.endswith((".pyc", ".tmp", ".bak", ".log")):
             continue
         if path.name.lower() == "test_progress.zip" or path.name.lower().endswith("_test_progress.zip"):
@@ -92,7 +94,7 @@ def package_platform(target, platform, label, extension, name, stem, version, ex
     readme = (
         f"# {name} {version} — {label} x86_64\n\n{launch}\n\n"
         "程序包含运行资源，无需安装或打开 Godot 编辑器。需要图形桌面和兼容的图形驱动。\n\n"
-        "将 examples/localization_story（中英日多语言）、examples/media_state_story、examples/text_style_story、examples/portrait_story 或 examples/flow_story 复制到可写目录，"
+        "将 examples/project_extensions（项目与扩展）、examples/localization_story（中英日多语言）、examples/media_state_story、examples/text_style_story、examples/portrait_story 或 examples/flow_story 复制到可写目录，"
         "在程序中选择该示例目录为 Content Folder，再打开其中的 .dtl。\n\n"
         "发布说明、路线图及完整测试清单位于同版本 Source 包的 docs/ 中。"
         "独立测试进度包提供实际执行证据；Windows 实机验证依约延期至 1.0.0。\n\n"

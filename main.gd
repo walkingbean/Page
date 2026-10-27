@@ -24,6 +24,7 @@ var glossary_editor: Window
 var translation_editor: Window
 var styles_editor: Window
 var settings_editor: Window
+var project_editor: Window
 var character_editor: Control
 var variable_editor: Control
 var create_variables_dialog: ConfirmationDialog
@@ -89,6 +90,12 @@ func _ready() -> void:
 	styles_editor.name = "StyleEditor"
 	add_child(styles_editor)
 	styles_editor.saved.connect(func(): _refresh_workspace())
+	project_editor = preload("res://ui/components/project_editor.gd").new()
+	project_editor.name = "ProjectEditor"; add_child(project_editor)
+	project_editor.saved.connect(_refresh_localized_workspace)
+	project_editor.resource_renamed.connect(func(previous: String, next: String):
+		if has_document and document.path == workspace.resolve_content_path(previous): document.path = workspace.resolve_content_path(next)
+		if has_character and character_document.path == workspace.resolve_content_path(previous): character_document.path = workspace.resolve_content_path(next))
 	settings_editor = preload("res://ui/components/text_settings_editor.gd").new()
 	settings_editor.name = "TextSettingsEditor"
 	add_child(settings_editor)
@@ -193,6 +200,9 @@ func _build_content_bar() -> void:
 	refresh.tooltip_text = "Rescan the content folder and validate character references."
 	refresh.pressed.connect(_refresh_workspace)
 	row.add_child(refresh)
+	var projects := Button.new(); projects.name = "ProjectExtensions"; projects.text = "Project & Extensions"
+	projects.pressed.connect(func(): _request_transition(func(): _with_workspace(func(): project_editor.open_project(workspace))))
+	row.add_child(projects)
 
 
 func _create_dialogs() -> void:
@@ -238,6 +248,13 @@ func _file_dialog(caption: String, mode: FileDialog.FileMode) -> FileDialog:
 
 
 func _request_transition(action: Callable) -> void:
+	if project_editor != null and project_editor.dirty():
+		project_editor.transition(func():
+			project_editor.hide()
+			_request_transition(action))
+		return
+	if project_editor != null and project_editor.visible:
+		project_editor.hide()
 	_sync_document_from_editor()
 	if _active_dirty():
 		pending_action = action
@@ -783,6 +800,10 @@ func _begin_timeline_preview() -> void:
 	if int(validation.get("event_count", 0)) == 0:
 		_show_error("Add a text line before starting preview.")
 		return
+	if validation.get("native_project", false):
+		project_editor.open_project(workspace)
+		project_editor.run_target("timeline", workspace.content_path(document.path) if not document.path.is_empty() else "", document.content)
+		return
 	var result: Error = await preview_window.start_preview(document.content, workspace, document.path)
 	if result != OK:
 		_show_error("Dialogic preview could not start (error %d)." % result)
@@ -793,6 +814,7 @@ func _begin_timeline_preview() -> void:
 
 
 func _stop_preview() -> void:
+	if project_editor != null: project_editor.runtime.stop()
 	if is_instance_valid(preview_window):
 		preview_window.stop_preview()
 
@@ -819,7 +841,7 @@ func _shortcut_input(event: InputEvent) -> void:
 	if not event is InputEventKey or not event.pressed or event.echo:
 		return
 	# No main-window shortcut may consume input belonging to a modal workflow.
-	for dialog: Window in [open_dialog, save_dialog, workspace_dialog, portrait_dialog, unsaved_dialog, create_variables_dialog, error_dialog, preview_window]:
+	for dialog: Window in [open_dialog, save_dialog, workspace_dialog, portrait_dialog, unsaved_dialog, create_variables_dialog, error_dialog, preview_window, project_editor]:
 		if is_instance_valid(dialog) and dialog.visible:
 			return
 	var handled := true

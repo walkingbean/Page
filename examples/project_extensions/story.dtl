@@ -1,0 +1,11 @@
+# Native Dialogic 2.0-alpha-20 project and extensions
+[demoextension]
+do Host.record("时间线中的原生宿主调用")
+[signal arg="你好，项目与扩展"]
+join guide center
+guide: 这个立绘来自目标工程中的自定义场景。
+do Host.delayed()
+guide: 宿主异步方法已完成，时间线继续。
+update guide [mirrored="true" extra_data="example"]
+guide: 在 Project & Extensions 中可编辑目标脚本、配置和资源。
+leave guide

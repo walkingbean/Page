@@ -46,7 +46,7 @@ func _run() -> void:
 		presets = _set_key(presets, section, "export_path", "builds/%s/%s%s" % [folder, values["artifact_stem"], extension])
 		# All resources includes logos referenced only by branding.cfg. Exported
 		# runtime resolves imported SVG textures when source bytes are omitted.
-		presets = _set_key(presets, section, "include_filter", "*.dtl,*.dch,*.cfg,*.txt,*.svg")
+		presets = _set_key(presets, section, "include_filter", "*.dtl,*.dch,*.cfg,*.txt,*.svg,*.zip")
 		presets = _set_key(presets, section, "exclude_filter", "tests/*,docs/*,builds/*,tools/*,examples/*,*.md")
 		if platform == "Windows Desktop":
 			presets = _set_key(presets, section + ".options", "application/modify_resources", true)

@@ -1,4 +1,4 @@
-# PAGE Editor 0.6.0 官方资料
+# PAGE Editor 0.7.0 官方资料
 
 本版兼容目标固定为 Godot 4.7.1 / Dialogic 2.0-alpha-20。开发细节对照指定版本源码；在线文档用于补充与核对，不自动改变兼容目标。
 
@@ -144,3 +144,31 @@ Godot 4.7.1 内部的 fallback getter/setter 未向 GDScript 暴露。PAGE 预�
 ## 固定引擎的弹出菜单差异
 
 提供的 Godot 4.7.1 源码 `scene/gui/popup.cpp`、`scene/gui/option_button.cpp` 与 `scene/main/window.cpp` 用于核对 Popup 可见父窗口连接、原生窗口选项与坐标转换。本版最小复现分别运行编辑器引擎和 release 模板：嵌入式 Popup 在 release 模板关闭时记录重复断开连接错误，原生 Popup 没有此错误。应用只对本版新增的五个下拉菜单使用原生 Popup，并将按钮坐标转换到桌面坐标，保留屏幕边界限制。未修改固定引擎或 Dialogic 插件。具体复现、失败和实际成品界面证据在独立进度包中。
+
+## 0.7.0 项目、宿主与扩展（2026-10-27）
+
+- https://docs.godotengine.org/en/stable/classes/class_projectsettings.html
+- https://docs.godotengine.org/en/stable/classes/class_resourceuid.html
+- https://docs.godotengine.org/en/stable/classes/class_pckpacker.html
+- https://docs.dialogic.pro/creating-extensions
+- https://docs.dialogic.pro/dialogic-signals.html
+- https://docs.dialogic.pro/custom-portraits.html
+
+固定源码核对：Godot `core/io/resource_uid.cpp`、`file_access_pack.cpp`、`pck_packer.cpp`、`logger.cpp`、`core/config/project_settings.cpp`、`main/main.cpp`、LinuxBSD/Windows 的 `os_*` 和 `export/export_plugin.cpp`；Dialogic `Core/index_class.gd`、`DialogicResourceUtil.gd`、Signal/Call、`Editor/dialogic_editor.gd`、Portrait/Animation/Style 及 Text 索引。
+
+实测差异：固定 release 模板不允许 `--main-pack`，因此发布预览按该版本原生资源段和 PCK 尾部格式生成临时独立程序。PCK V3/V4 文件偏移相对于包起点；ELF 64 位资源段大小和 PE pck SizeOfRawData 随包同步。发布版默认不立即刷新普通日志，预览配置显式开启 `application/run/flush_stdout_on_print`。固定子系统安装回调是 `_post_install`；不采用文档或记忆中的其他拼写。
+
+Signal 字典参数使用原生 JSON 对象与只读字典语义；Call 参数及 await 行为由固定插件执行。不会为消除原生差异修改插件。所有对应运行结果以本版独立 Test_Progress 为准。
+
+## 0.7.0 固定源码核对
+
+项目读写与原生预览核对了指定 4.7.1 的 ConfigFile、ResourceUID、PCK 与 PC 导出器实现；独立程序按其 ELF/PE 嵌入资源段读取目标包，不改引擎代码。固定 release 模板不支持以 --main-pack 覆盖启动包。
+
+原生扩展以指定 Alpha 20 的 DialogicIndexer、DialogicEditor、DialogicSubsystem、DialogicPortrait、DialogicAnimation 和布局层接口为准。跳转语法以 Modules/Jump/event_jump.gd 为准：jump other/Start 跨时间线，jump story/ 跳到另一时间线开头，无斜线形式为当前时间线标签。固定 Godot scene/main/window.cpp 的关闭事件在 exclusive_child 存在时被阻止，退出应用须先关闭模态项目面板。
+
+
+## 0.7.0 本轮固定源码与实测补充
+
+- 固定 Godot 源码 `editor/file_system/editor_file_system.cpp` 读取 `editor/import/use_multiple_threads`；它与场景线程选项不同。字体导入异常及单线程导入诊断见 BUILD.md，原始679/680失败日志和后续结果均保留。
+- 固定 Dialogic `Modules/Save/event_save.gd` 的字段初值为空串，但序列化默认值为 `Default`。原始参考工程执行727独立复现显式 Default → `[save]` →空槽的往返差异。PAGE 不修改插件，自己的保存显式写槽名。
+- `Modules/History/subsystem_history.gd` 将两类历史数组作为导出属性。原始参考工程727的四种保存开关组合均保留数组，PAGE执行806的实际保存/载入复现该行为。相关用例保持未完成。

@@ -1,4 +1,4 @@
-# PAGE Editor 0.6.0 示例
+# PAGE Editor 0.7.0 示例
 
 | 示例 | 打开方式 | 内容 |
 |---|---|---|
@@ -44,3 +44,9 @@
 ## localization_story（0.6.0）
 
 中英日原文和译文、角色、术语与别名示例。复制到可写目录，选择其为 Content Folder，打开 story.dtl；通过 Translate 检查 CSV，通过 Glossary 编辑术语，在预览顶部切换语言。
+
+## 项目与扩展（0.7.0）
+
+`project_extensions/` 包含原生 project.godot、Host 单例、时间线、角色、自定义事件与子系统，以及编辑器、立绘、动画、布局示例。先将整个目录复制到可写位置，在 PAGE 中选择此目录为 Content Folder，再打开 Project & Extensions。Run project 运行原生主场景，Run selected 可运行选中的时间线或场景；运行兼容的 DialogicEditor 使用 Open selected editor。自定义编辑器通过 Save editor 选择原生 .cfg 输出文件。
+
+需要完整 Godot 编辑器接口的扩展应在固定 Godot 4.7.1 中打开。示例不更换 Dialogic 2.0-alpha-20 依赖。

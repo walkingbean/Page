@@ -24,6 +24,8 @@ static func normalize_source(source: String) -> String:
 
 
 static func validate_content(source: String, workspace: RefCounted = null, source_path: String = "") -> Dictionary:
+	if preload("res://application/host_source.gd").needs_native(source, workspace):
+		return preload("res://application/host_source.gd").validate(source, workspace)
 	var result: Dictionary = _validate(source, workspace, source_path)
 	if result.get("_timeline") != null:
 		GRAPH.release(result._timeline)
