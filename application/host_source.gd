@@ -5,10 +5,29 @@ const Data = preload("res://application/variable_document.gd")
 static func needs_native(source: String, workspace: RefCounted) -> bool:
 	if workspace == null: return false
 	if RegEx.create_from_string('(?m)^\\s*(?:do\\s|\\[signal(?:\\s|\\]))').search(source): return true
+	# A target background scene must run in the isolated native project, where
+	# its own resources and scripts resolve against the selected content root.
+	for raw: String in source.split("\n"):
+		var text := raw.strip_edges()
+		if text.begins_with("[background ") or text.begins_with("[background\t"):
+			var background := DialogicBackgroundEvent.new()
+			background.from_text(text)
+			if not background.scene.is_empty(): return true
 	var path: String = workspace.root_path.path_join("project.godot")
 	if not FileAccess.file_exists(path): return false
 	var config := Config.inspect(FileAccess.get_file_as_string(path))
 	if config.has("error"): return false
+	# Native variable folders retain their original dictionary configuration and
+	# run in the target runtime; the scalar preview never flattens that authority.
+	var variables: Variant = config.entries.get("dialogic/variables", {}).get("value", {})
+	if variables is Dictionary:
+		for reference: RegExMatch in RegEx.create_from_string(r"\{([A-Za-z_][A-Za-z0-9_]*)(?:\.[A-Za-z_][A-Za-z0-9_]*)+\}").search_all(source):
+			if variables.get(reference.get_string(1)) is Dictionary: return true
+	for key: String in preload("res://application/settings_catalog.gd").EXTRA:
+		# The embedded flow preview already applies and restores this native
+		# default, including flow diagnostics and execution budgets.
+		if key == "choices/def_false_behaviour": continue
+		if (key.begins_with("choices/") or key.begins_with("animations/") or key.begins_with("portraits/") or key in ["text/custom_bbcode_effects", "timer/process_in_physics", "layout/end_behaviour", "event_default_overrides"]) and config.entries.has("dialogic/" + key): return true
 	# An unrelated target Autoload must stay inert during ordinary text/data preview.
 	# Native host execution is selected by actual Call/Signal content or extensions.
 	var folder: String = str(config.entries.get("dialogic/extensions_folder", {}).get("value", "res://addons/dialogic_additions/"))
@@ -32,7 +51,10 @@ static func validate(source: String, workspace: RefCounted) -> Dictionary:
 		if text.is_empty() or text.begins_with("#"): continue
 		event_count += 1
 		var problem := ""
-		if text.begins_with("do "):
+		if text.begins_with("[background ") or text.begins_with("[background\t"):
+			var background := preload("res://application/media_source.gd").inspect(text, DialogicBackgroundEvent.new(), workspace)
+			problem = background.get("error", "")
+		elif text.begins_with("do "):
 			var syntax := RegEx.create_from_string('^do\\s+([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*)\\.([A-Za-z_][A-Za-z0-9_]*)\\((.*)\\)\\s*$').search(text)
 			if syntax == null: problem = "Use native do Autoload.method(arguments) syntax."
 			else:

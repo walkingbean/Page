@@ -23,6 +23,7 @@ var active_mode := "timeline"
 var glossary_editor: Window
 var translation_editor: Window
 var styles_editor: Window
+var native_settings_editor: Window
 var settings_editor: Window
 var project_editor: Window
 var character_editor: Control
@@ -35,6 +36,7 @@ var _variable_initial_fields: Dictionary = {}
 var _variable_form_dirty := false
 var _variable_form_error := ""
 var content_label: Label
+var _preview_start_line := 0
 var preview_window: Window
 var open_dialog: FileDialog
 var save_dialog: FileDialog
@@ -52,6 +54,7 @@ var _character_form_error := ""
 
 
 func _ready() -> void:
+	preload("res://ui/components/native_popup.gd").configure_tooltips(get_tree())
 	# Preserve the supplied theme's primary typeface while making content names
 	# and configurable branding readable in languages covered by the bundled font.
 	var interface_font := FontVariation.new()
@@ -67,6 +70,10 @@ func _ready() -> void:
 	editor.save_requested.connect(_save_document)
 	editor.save_as_requested.connect(_save_as)
 	editor.preview_requested.connect(_start_preview)
+	editor.preview_from_line.connect(func(line: int): _start_preview(line))
+	get_window().files_dropped.connect(func(paths: PackedStringArray):
+		if active_mode == "timeline" and editor.visible and get_window().get_exclusive_child() == null:
+			editor.authoring.drop_files(paths, editor.source_editor.get_caret_line()))
 	editor.stop_requested.connect(_stop_preview)
 	editor.content_changed.connect(_on_content_changed)
 	sidebar.new_requested.connect(func(): _request_transition(_new_document))
@@ -100,6 +107,12 @@ func _ready() -> void:
 	settings_editor.name = "TextSettingsEditor"
 	add_child(settings_editor)
 	settings_editor.saved.connect(func(): _refresh_workspace())
+	native_settings_editor = preload("res://ui/components/native_settings_editor.gd").new()
+	native_settings_editor.name = "NativeSettingsEditor"; add_child(native_settings_editor)
+	native_settings_editor.saved.connect(_refresh_localized_workspace)
+	settings_editor.all_settings_requested.connect(func():
+		settings_editor.hide()
+		native_settings_editor.open_settings(workspace))
 	for item: String in ["Layouts", "Settings"]:
 		var button: Button = tabs.get_node(item)
 		button.disabled = false
@@ -248,6 +261,10 @@ func _file_dialog(caption: String, mode: FileDialog.FileMode) -> FileDialog:
 
 
 func _request_transition(action: Callable) -> void:
+	if native_settings_editor != null and native_settings_editor.dirty():
+		native_settings_editor.transition(func(): _request_transition(action))
+		return
+	if native_settings_editor != null: native_settings_editor.hide()
 	if project_editor != null and project_editor.dirty():
 		project_editor.transition(func():
 			project_editor.hide()
@@ -734,6 +751,7 @@ func _refresh_workspace_chrome() -> void:
 	ids.sort()
 	editor.set_characters(ids)
 	editor.content_workspace = workspace
+	sidebar.set_media(editor.authoring.resource_paths(workspace) if workspace != null else [])
 
 
 func _revalidate_timeline_context() -> void:
@@ -770,7 +788,8 @@ func _update_portrait_preview(logical: String) -> void:
 	character_editor.set_portrait_preview(texture, logical)
 
 
-func _start_preview() -> void:
+func _start_preview(from_line: int = 0) -> void:
+	_preview_start_line = from_line
 	_sync_document_from_editor()
 	if active_mode == "character" or not has_document:
 		return
@@ -802,9 +821,9 @@ func _begin_timeline_preview() -> void:
 		return
 	if validation.get("native_project", false):
 		project_editor.open_project(workspace)
-		project_editor.run_target("timeline", workspace.content_path(document.path) if not document.path.is_empty() else "", document.content)
+		project_editor.run_target("timeline", workspace.content_path(document.path) if not document.path.is_empty() else "", document.content, _preview_start_line)
 		return
-	var result: Error = await preview_window.start_preview(document.content, workspace, document.path)
+	var result: Error = await preview_window.start_preview(document.content, workspace, document.path, _preview_start_line)
 	if result != OK:
 		_show_error("Dialogic preview could not start (error %d)." % result)
 		return

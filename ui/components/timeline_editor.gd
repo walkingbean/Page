@@ -4,6 +4,7 @@ signal new_requested
 signal open_requested
 signal save_requested
 signal save_as_requested
+signal preview_from_line(line: int)
 signal preview_requested
 signal stop_requested
 signal content_changed(text: String)
@@ -19,6 +20,7 @@ signal content_changed(text: String)
 @onready var create_timeline_button: Button = %CreateTimelineButton
 @onready var title_label: Label = $Header/HeaderMargin/HeaderRow/TimelineName
 
+var authoring: VBoxContainer
 var content_workspace: RefCounted
 var interaction_form: ConfirmationDialog
 var character_form: ConfirmationDialog
@@ -59,6 +61,7 @@ func _ready() -> void:
 	_build_empty_screen()
 	create_timeline_button.pressed.connect(func() -> void: new_requested.emit())
 	event_palette.connect(&"text_requested", _insert_narration)
+	event_palette.connect(&"host_requested", func(kind: String): _insert_branch_event('[signal arg="Signal"]' if kind == "Signal" else "do Host.method()"))
 	event_palette.connect(&"comment_requested", _insert_comment)
 	event_palette.connect(&"character_event_requested", _insert_character_source)
 	character_form = preload("res://ui/components/character_event_editor.gd").new()
@@ -89,6 +92,12 @@ func _ready() -> void:
 	interaction_form.name = "TextInteractionEditor"
 	add_child(interaction_form)
 	event_palette.connect(&"interaction_requested", func(kind: String): interaction_form.open_for_editor(source_editor, content_workspace, kind))
+	authoring = preload("res://ui/components/authoring_tools.gd").new()
+	var source_column := source_editor.get_parent()
+	source_column.add_child(authoring)
+	source_column.move_child(authoring, source_editor.get_index())
+	authoring.setup(self)
+	authoring.play_from_line.connect(func(line: int): preview_from_line.emit(line))
 	_refresh_view_state()
 
 
@@ -408,10 +417,12 @@ func show_document(title: String, text: String, read_only: bool, message: String
 	source_editor.set_search_text("")
 	set_diagnostics([])
 	_updating_text = true
+	if authoring != null: authoring.prepare_source(text)
 	source_editor.text = text
 	source_editor.clear_undo_history()
 	_updating_text = false
 	set_document_state(title, read_only, message)
+	if authoring != null: authoring.snapshot = ""; authoring.refresh()
 
 
 func set_document_state(title: String, read_only: bool, message: String) -> void:
@@ -452,7 +463,8 @@ func get_text_editor() -> CodeEdit:
 
 func focus_editor() -> void:
 	if timeline_opened:
-		source_editor.grab_focus()
+		if authoring != null and authoring.visual: authoring.tree.grab_focus()
+		else: source_editor.grab_focus()
 
 
 func _on_source_changed() -> void:
@@ -524,3 +536,5 @@ func _refresh_view_state() -> void:
 	diagnostic_jump_button.disabled = preview_running or _issues.is_empty() or int(_issues[diagnostic_selector.selected].get("line", 0)) <= 0
 	source_editor.editable = timeline_opened and not document_read_only and not preview_running
 	event_palette.call(&"set_editable", timeline_opened and not document_read_only and not preview_running)
+	if authoring != null: authoring.refresh()
+

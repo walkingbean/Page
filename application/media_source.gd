@@ -24,7 +24,7 @@ static func slot_error(value: String) -> String:
 	if value.to_upper() in ["CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"]: return "This slot name is reserved on Windows."
 	return ""
 
-static func inspect(raw: String, original: DialogicEvent, workspace: RefCounted = null) -> Dictionary:
+static func inspect(raw: String, original: DialogicEvent, workspace: RefCounted = null, check_references := true) -> Dictionary:
 	var kind := kind_of(original)
 	var event := create(kind)
 	if event == null: return {"error":"Unknown media event."}
@@ -79,12 +79,17 @@ static func inspect(raw: String, original: DialogicEvent, workspace: RefCounted 
 		if kind != "Audio" or not FLAGS.has(property) or event.get(FLAGS[property]): properties[property] = event.get(property)
 	if kind == "Audio":
 		for flag: String in FLAGS.values(): properties[flag] = event.get(flag)
+	if not check_references: return {"kind":"interaction", "interaction":kind, "properties":properties, "event":event, "raw":raw}
 	var error := ""
 	match kind:
 		"Background":
-			if not event.scene.is_empty(): error = "Custom background scenes require the project-extension stage; the original source is preserved."
-			elif not event.transition.is_empty() and not Assets.transitions().has(event.transition): error = "Unknown or custom background transition: " + event.transition
+			if not event.scene.is_empty():
+				# The fixed native subsystem accepts .tscn scenes. Inspect the path
+				# without loading target scripts in the authoring process.
+				var absolute: String = workspace.resolve_content_path(event.scene) if workspace != null else ""
+				if absolute.is_empty() or event.scene.get_extension() != "tscn" or not FileAccess.file_exists(absolute): error = "Choose an existing unlinked res:// .tscn background scene in the content folder."
 			elif not event.argument.is_empty() and not (event.argument.begins_with("#") and event.argument.is_valid_html_color()): error = Assets.path_error(event.argument, workspace, "image")
+			if error.is_empty() and not event.transition.is_empty() and not Assets.transitions().has(event.transition): error = "Unknown or custom background transition: " + event.transition
 		"Audio", "Voice":
 			if kind == "Voice" or not event.file_path.is_empty(): error = Assets.path_error(event.file_path, workspace, "audio")
 			if error.is_empty(): error = Assets.bus_error(event.audio_bus, workspace)

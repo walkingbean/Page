@@ -1,5 +1,6 @@
 extends PanelContainer
 
+signal host_requested(kind: String)
 signal interaction_requested(kind: String)
 signal character_properties_requested(kind: String)
 signal choice_requested
@@ -34,6 +35,10 @@ func _ready() -> void:
 		if child is Button:
 			child.disabled = true
 			child.tooltip_text = "%s editing is planned for a future version." % child.text
+	for host_kind: String in ["Signal", "Call"]:
+		var host_button := BUTTON_SCENE.instantiate() as Button; host_button.name = host_kind; host_button.text = host_kind; sections.add_child(host_button)
+		host_button.pressed.connect(func(): host_requested.emit(host_kind))
+		interaction_buttons.append(host_button)
 	text_button = BUTTON_SCENE.instantiate() as Button
 	text_button.name = "Text"
 	text_button.text = "Text"

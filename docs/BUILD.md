@@ -1,4 +1,4 @@
-# PAGE Editor 0.7.0 构建与发布
+# PAGE Editor 0.8.0 构建与发布
 
 ## 构建条件
 
@@ -32,7 +32,7 @@ builds/windows/PAGE_Editor.exe
 builds/linux/PAGE_Editor.x86_64
 ```
 
-Windows 产品名和文件描述为 `PAGE Editor`，文件与产品数字版本为 `0.7.0.0`。应用版本为 `0.7.0`。修改集中配置或 SVG 后应重新导出程序，仅改压缩包名不会修改 EXE 内的产品资源。
+Windows 产品名和文件描述为 `PAGE Editor`，文件与产品数字版本为 `0.8.0.0`。应用版本为 `0.8.0`。修改集中配置或 SVG 后应重新导出程序，仅改压缩包名不会修改 EXE 内的产品资源。
 
 两个预设均将 PCK 嵌入可执行程序；不必在程序旁另放 PCK。程序未代码签名。构建需要匹配模板，使用发布包运行应用不需要安装 Godot。
 
@@ -50,9 +50,9 @@ python3 tools/package_release.py --output /absolute/path/to/deliverables
 
 | 文件 | 包内根目录或程序 |
 |---|---|
-| `PAGE_Editor_0.7.0_Source.zip` | `PAGE_Editor_v0.7.0/` |
-| `PAGE_Editor_0.7.0_Windows_x86_64.zip` | `PAGE_Editor_0.7.0_Windows_x86_64/PAGE_Editor.exe` |
-| `PAGE_Editor_0.7.0_Linux_x86_64.zip` | `PAGE_Editor_0.7.0_Linux_x86_64/PAGE_Editor.x86_64` |
+| `PAGE_Editor_0.8.0_Source.zip` | `PAGE_Editor_v0.8.0/` |
+| `PAGE_Editor_0.8.0_Windows_x86_64.zip` | `PAGE_Editor_0.8.0_Windows_x86_64/PAGE_Editor.exe` |
+| `PAGE_Editor_0.8.0_Linux_x86_64.zip` | `PAGE_Editor_0.8.0_Linux_x86_64/PAGE_Editor.x86_64` |
 
 打包工具先在临时目录准备完整三份构建交付文件，再以拒绝覆盖的方式写入交付目录；遇到已有文件、缺少程序或文档时明确失败。工具在控制台输出实际三份压缩包的大小与 SHA256；交付回答和 RECORD 保存这些信息；不把包哈希回写进包内文档，不计算自身循环哈希。
 
@@ -112,11 +112,11 @@ user_data_directory="dialogic-standalone-editor"
 | `app_icon_svg` | 应用图标与 Home 按钮图标 SVG，与横向 LOGO 分开配置；建议使用 256×256 方形画布 |
 | `user_data_directory` | 稳定的用户数据目录标识，字符限制同 `artifact_stem`；单纯调整显示名称时保持不变 |
 
-版本来自 **`VERSION.txt`**，本版内容为 `0.7.0`；平台数字版本同步为 `0.7.0.0`。
+版本来自 **`VERSION.txt`**，本版内容为 `0.8.0`；平台数字版本同步为 `0.8.0.0`。
 
 具体操作：
 
-1. 解压 Source，进入包含 `project.godot` 的 `PAGE_Editor_v0.7.0/`。打开 `config/branding.cfg`。
+1. 解压 Source，进入包含 `project.godot` 的 `PAGE_Editor_v0.8.0/`。打开 `config/branding.cfg`。
 2. 修改 `project_name` 和 `artifact_stem`。只调整显示名称时保持 `user_data_directory` 不变，避免改变用户数据位置。
 3. 替换 `asset/branding/page-logo.svg`，或把新 SVG 放到 `asset/branding/` 并更新 `logo_svg`。必须是真实 SVG XML；建议透明背景、适配深色主题、文字转为轮廓。文件不得超过 2 MiB，不可放在导出排除的 `docs/`、`tools/`、`examples/`、`tests/` 或 `builds/` 中。
 4. 如需修改应用图标，替换 `asset/branding/page-icon.svg` 或更新 `app_icon_svg`。横向 LOGO 与应用图标用途不同；替换一个不自动替换另一个。
@@ -148,7 +148,7 @@ Godot 导出时会处理 SVG 纹理，程序支持源码 SVG 与导出纹理。�
 
 执行 591 的导入、双平台导出和打包已经成功，但随后检查工具遗留的 482 条数量断言拒绝了 0.6.0 的 533 条清单。修正的是 QA 数量断言，同时仍要求与编码前保存的全部独立定义完全一致；执行 595 从头重跑验证。
 
-## 0.7.0 独立目标预览构建
+## 0.8.0 独立目标预览构建
 
 成功导入、同步品牌后，必须运行 `python3 tools/prepare_runtime.py`，再执行双平台导出。该步骤从未修改的 Dialogic 依赖、导入资源和全局类缓存生成 `runtime/native_runtime.zip`。它是构建输出，纳入发布程序 PCK；Source 不包含此 ZIP 或导入缓存，新的 Source 副本必须重新生成。
 
@@ -157,8 +157,8 @@ Godot 导出时会处理 SVG 纹理，程序支持源码 SVG 与导出纹理。�
 临时程序需要用户数据目录可写且允许执行，预览准备需要容纳当前平台引擎副本和目标资源的空间。源项目不作为临时输出目录。目标代码不是操作系统沙盒；进程隔离用于防止编辑器单例、全局类、资源 UID 和项目配置相互污染。
 
 
-## 0.7.0 本轮构建观察
+## 0.7.0 历史构建观察
 
-在本次构建验证中，固定 Godot 4.7.1 曾在两个独立品牌检查副本导入 `NotoSansCJKsc-Regular.otf` 时异常退出（一次 `malloc(): unaligned tcache chunk detected`，一次信号 11）。这些失败保留在独立测试证据中，尚未确定根因；多次从未修改的 Source 全新导入并完成双平台导出成功，不代表上述异常已经修复。
+在 0.7.0 构建验证中，固定 Godot 4.7.1 曾在两个独立品牌检查副本导入 `NotoSansCJKsc-Regular.otf` 时异常退出（一次 `malloc(): unaligned tcache chunk detected`，一次信号 11）。这些失败保留在独立测试证据中，尚未确定根因；多次从未修改的 Source 全新导入并完成双平台导出成功，不代表上述异常已经修复。
 
 在一次性构建副本中，将原有 `[editor]` 节的 `import/use_multiple_threads` 设为 `false`，已验证可以完成对应的单线程导入阶段；不要重复创建同名节。该选项由固定源码 `editor/file_system/editor_file_system.cpp` 读取。`--single-threaded-scene` 不控制资源导入线程，不能当作等价选项。本版没有修改引擎、插件或正式工程配置来隐藏异常。若采用该诊断步骤，记录修改后的构建输入；任一导入失败时停止依赖的品牌同步、资源准备和导出步骤，并保留日志。

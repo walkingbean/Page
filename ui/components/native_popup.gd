@@ -2,6 +2,17 @@ extends RefCounted
 ## Fixed Godot 4.7.1 release templates require native PopupMenus here.
 ## Position them in desktop coordinates when their owning Window is embedded.
 
+static func configure_tooltips(tree: SceneTree) -> void:
+	if not tree.node_added.is_connected(_configure_tooltip):
+		tree.node_added.connect(_configure_tooltip)
+
+static func _configure_tooltip(node: Node) -> void:
+	# The fixed release template has the same embedded Popup cleanup defect for
+	# generated tooltips. Viewport positions native tooltips itself after adding
+	# this panel, so no custom placement or changes to ordinary windows are needed.
+	if node is PopupPanel and node.theme_type_variation == &"TooltipPanel":
+		node.force_native = true
+
 static func configure(picker: OptionButton) -> void:
 	var popup := picker.get_popup()
 	popup.force_native = true

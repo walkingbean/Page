@@ -87,7 +87,10 @@ static func _validate_local(source: String, workspace: RefCounted, flow_mode: bo
 			if RegEx.create_from_string("^[0-9a-fA-F]+$").search(translation_id) == null or raw_event.count("#id:") != 1:
 				_add_issue(issues, first_line, 1, "Invalid native translation ID.")
 				continue
-			raw_event = raw_event.get_slice("#id:", 0)
+			raw_event = raw_event.get_slice("#id:", 0).strip_edges(false, true)
+		if event is DialogicTextEvent and not unknown_shortcode(raw_event).is_empty():
+			_add_issue(issues, first_line, 1, "Unregistered event-like shortcode: " + unknown_shortcode(raw_event) + ". Keep it as source until its extension is available, or escape the opening bracket for literal text.")
+			continue
 		var source_lines: Array[int] = record.source_lines
 		var source_columns: Array[int] = record.source_columns
 		for ending: int in record.ends_before:
@@ -139,6 +142,7 @@ static func _validate_local(source: String, workspace: RefCounted, flow_mode: bo
 				continue
 			assignment["line"] = first_line
 			expected_events.append(assignment)
+			if active and assignment.get("runtime_unknown", false): runtime_unknown = true
 			if active and not runtime_unknown:
 				runtime[assignment.name] = assignment.value
 			continue
@@ -288,8 +292,9 @@ static func _parsed_mismatch(parsed: DialogicEvent, expected: Dictionary, charac
 			return "The official parser did not preserve the Condition event."
 		return ""
 	if expected["kind"] == "variable":
-		if not parsed is DialogicVariableEvent or parsed.operation != DialogicVariableEvent.Operations.SET or parsed.name != expected.name or parsed._value_type != expected.value_type or parsed.value != expected.native_value:
+		if not parsed is DialogicVariableEvent or parsed.operation != expected.get("operation", DialogicVariableEvent.Operations.SET) or parsed.name != expected.name or parsed._value_type != expected.value_type or parsed.value != expected.native_value:
 			return "The official parser did not preserve the Variable assignment event."
+		if expected.has("random_min") and (parsed.random_min != expected.random_min or parsed.random_max != expected.random_max): return "The official parser did not preserve the random range."
 		return ""
 	if expected["kind"] == "comment":
 		return "" if parsed is DialogicCommentEvent else "The official parser did not preserve the Comment event."
@@ -372,3 +377,16 @@ static func _result(issues: Array[Dictionary], narration_count: int, comment_cou
 		"event_count": narration_count + character_text_count, "narration_count": narration_count,
 		"character_text_count": character_text_count, "comment_count": comment_count,
 		"character_event_count": character_event_count}
+
+
+static func unknown_shortcode(raw: String) -> String:
+	var found := RegEx.create_from_string('^\\[([A-Za-z_][A-Za-z0-9_]*)(?:[ =][^\\n]*)?\\]$').search(raw.strip_edges())
+	if found == null: return ""
+	var name := found.get_string(1)
+	# Canonical built-ins from fixed Godot 4.7.1 RichTextLabel::append_text.
+	# Keep native formatting distinct from unavailable event shortcodes.
+	var known := ["alm", "b", "bgcolor", "br", "cell", "center", "char", "code", "color", "dropcap", "fade", "fgcolor", "fill", "font", "font_size", "fsi", "hint", "hr", "i", "img", "indent", "lang", "lb", "left", "lre", "lri", "lrm", "lro", "ol", "opentype_features", "otf", "outline_color", "outline_size", "p", "pdf", "pdi", "pulse", "rainbow", "rb", "right", "rle", "rli", "rlm", "rlo", "s", "shake", "shy", "table", "tornado", "u", "ul", "url", "wave", "wj", "zwj", "zwnj"]
+	for indexer: DialogicIndexer in DialogicUtil.get_indexers():
+		for effect: Dictionary in indexer._get_text_effects() + indexer._get_text_modifiers():
+			if effect.has("command"): known.append(str(effect.command))
+	return "" if name in known else name

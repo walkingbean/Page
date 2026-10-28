@@ -8,9 +8,11 @@ func _start() -> void:
 	var arguments := OS.get_cmdline_user_args()
 	var mode := "project"
 	var entry := ""
+	var start_line := 0
 	for index: int in arguments.size():
 		if arguments[index] == "--page-mode" and index + 1 < arguments.size(): mode = arguments[index + 1]
 		if arguments[index] == "--page-entry" and index + 1 < arguments.size(): entry = arguments[index + 1]
+		if arguments[index] == "--page-line" and index + 1 < arguments.size(): start_line = arguments[index + 1].to_int()
 	print("PAGE_TARGET_READY ", JSON.stringify({"mode":mode, "entry":entry, "pid":OS.get_process_id()}))
 	if mode == "project" or mode == "scene" or mode == "editor":
 		if entry.is_empty(): _failure("No target scene selected."); return
@@ -49,7 +51,15 @@ func _start() -> void:
 			var shortcode := RegEx.create_from_string('^\\[([A-Za-z_][A-Za-z0-9_]*)(?:\\s[^\\n]*|=[^\\n]*)?\\]$').search(event.text.strip_edges())
 			if shortcode != null and not shortcode.get_string(1) in text_commands:
 				push_warning("Unregistered shortcode in target timeline; native parser treats it as text: " + event.text)
-	dialogic.start(timeline)
+	var start_index := 0
+	if start_line > 0:
+		# Alpha 20 indexes physical lines before inserting branch terminators.
+		# Skip only those internal boundaries to reach the selected real event.
+		start_index = int(timeline.text_lines_indexed.get(start_line - 1, -1))
+		while start_index >= 0 and start_index < timeline.events.size() and timeline.events[start_index] is DialogicEndBranchEvent:
+			start_index += 1
+		if start_index < 0 or start_index >= timeline.events.size(): _failure("Cannot map selected event in the target timeline."); return
+	dialogic.start(timeline, start_index)
 	print("PAGE_TARGET_TIMELINE_STARTED ", entry)
 
 func _failure(message: String) -> void:

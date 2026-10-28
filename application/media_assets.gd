@@ -6,9 +6,11 @@ const Native = preload("res://application/native_resource.gd")
 
 static func transitions() -> Dictionary:
 	var result := {"": "res://addons/dialogic/Modules/Background/Transitions/Defaults/simple_fade.gd"}
-	for path: String in DialogicResourceUtil.list_special_resources("BackgroundTransition"):
+	var native: Dictionary = DialogicResourceUtil.list_special_resources("BackgroundTransition")
+	for name: String in native:
+		var path: String = native[name].get("path", "")
 		if path.begins_with("res://addons/dialogic/Modules/Background/Transitions/"):
-			result[DialogicUtil.pretty_name(path)] = path
+			result[DialogicUtil.pretty_name(name)] = path
 	return result
 
 static func path_error(logical: String, workspace: RefCounted, kind: String) -> String:

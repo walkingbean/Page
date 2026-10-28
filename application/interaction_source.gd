@@ -28,14 +28,14 @@ static func setting_name_error(value: String) -> String:
 	host.free()
 	return "This name collides with a subsystem property." if value in reserved else ""
 
-static func inspect(raw: String, event: DialogicEvent, workspace: RefCounted = null, values: Dictionary = {}, evaluate := false) -> Dictionary:
+static func inspect(raw: String, event: DialogicEvent, workspace: RefCounted = null, values: Dictionary = {}, evaluate := false, check_references := true) -> Dictionary:
 	var kind := kind_of(event)
 	if kind.is_empty(): return {"error": "Unknown interaction event."}
-	if kind in Media.KINDS: return Media.inspect(raw, event, workspace)
+	if kind in Media.KINDS: return Media.inspect(raw, event, workspace, check_references)
 	if kind == "Setting": return inspect_setting(raw, workspace, values, evaluate)
 	var clone := create(kind)
 	var code := clone.get_shortcode()
-	var outer := RegEx.create_from_string('^\\[' + code + '(?:[ \\t]+(.*))?\\]$').search(raw)
+	var outer := RegEx.create_from_string('^\\[' + code + '(?:[ \\t]+(.*))?\\]$').search(raw.strip_edges())
 	if outer == null: return {"error": "Use the native [" + code + " key=\"value\"] syntax."}
 	var tail := outer.get_string(1)
 	var fields: Dictionary = clone.get_shortcode_parameters()
@@ -58,14 +58,14 @@ static func inspect(raw: String, event: DialogicEvent, workspace: RefCounted = n
 	clone.from_text(raw)
 	for key: String in input:
 		if clone.get(fields[key].property) != input[key]: return {"error": "The fixed native parser cannot preserve the supplied value for " + key + "."}
-	if kind == "TextInput":
+	if kind == "TextInput" and check_references:
 		var name: String = clone.variable.trim_prefix("{").trim_suffix("}")
 		if not name.is_valid_identifier() or not values.has(name) or not values[name] is String: return {"error": "TextInput requires an existing string variable in the selected content root."}
 		if clone.variable != name and clone.variable != "{" + name + "}": return {"error": "Use a string variable name or {name}."}
-	if kind == "Style" and workspace != null:
+	if kind == "Style" and check_references and workspace != null:
 		var problem: String = workspace.style_error(clone.style_name)
 		if not problem.is_empty(): return {"error": problem}
-	elif kind == "Style" and not clone.style_name.is_empty(): return {"error": "Choose a content folder with this style."}
+	elif kind == "Style" and check_references and not clone.style_name.is_empty(): return {"error": "Choose a content folder with this style."}
 	var properties := {}
 	for key: String in fields: properties[fields[key].property] = clone.get(fields[key].property)
 	return {"kind": "interaction", "interaction": kind, "properties": properties, "event": clone, "raw": raw}

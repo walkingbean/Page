@@ -1,6 +1,6 @@
 {
   "product": "PAGE Editor",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "engine": {
     "name": "Godot",
     "version": "4.7.1",
@@ -44,9 +44,9 @@
   "license_directory": "third_party/",
   "build_status_reference": "docs/RELEASE_NOTES.md",
   "base_release": {
-    "version": "0.6.0",
-    "name": "PAGE_Editor_0.6.0_Source.zip",
-    "bytes": 34378030,
-    "sha256": "0dcc7b4b1c68fd1f920ad580a6ae1cd1a42da6e079f98dc7a512a0c87cc99743"
+    "version": "0.7.0",
+    "name": "PAGE_Editor_0.7.0_Source.zip",
+    "bytes": 48032888,
+    "sha256": "058b05f322b96f11101f22a4a8a716cea5f8137bb75c0bb19b8c6829585b0877"
   }
 }

@@ -309,9 +309,9 @@ func run_selected() -> void:
 	elif selected_resource.get_extension() in ["tscn", "scn"]: run_target("scene", selected_resource)
 	else: show_message("Select a timeline or scene. Scripts run through their target scene or autoload.")
 
-func run_target(mode: String, entry: String, buffer: String = "") -> void:
+func run_target(mode: String, entry: String, buffer: String = "", start_line: int = 0) -> void:
 	show_message("Preparing target resources…")
-	var result := runtime.start(workspace, mode, entry, buffer)
+	var result := runtime.start(workspace, mode, entry, buffer, false, start_line)
 	if result.has("error"): show_message(result.error); return
 	_last_log_size = -1; _last_run_state = "running"; tabs.current_tab = 4; show_message("Target process running. Log: " + runtime.log_path)
 

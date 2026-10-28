@@ -1,4 +1,4 @@
-# PAGE Editor 0.7.0 官方资料
+# PAGE Editor 0.8.0 官方资料
 
 本版兼容目标固定为 Godot 4.7.1 / Dialogic 2.0-alpha-20。开发细节对照指定版本源码；在线文档用于补充与核对，不自动改变兼容目标。
 
@@ -172,3 +172,32 @@ Signal 字典参数使用原生 JSON 对象与只读字典语义；Call 参数�
 - 固定 Godot 源码 `editor/file_system/editor_file_system.cpp` 读取 `editor/import/use_multiple_threads`；它与场景线程选项不同。字体导入异常及单线程导入诊断见 BUILD.md，原始679/680失败日志和后续结果均保留。
 - 固定 Dialogic `Modules/Save/event_save.gd` 的字段初值为空串，但序列化默认值为 `Default`。原始参考工程执行727独立复现显式 Default → `[save]` →空槽的往返差异。PAGE 不修改插件，自己的保存显式写槽名。
 - `Modules/History/subsystem_history.gd` 将两类历史数组作为导出属性。原始参考工程727的四种保存开关组合均保留数组，PAGE执行806的实际保存/载入复现该行为。相关用例保持未完成。
+
+
+## 0.8.0 创作接口核对
+
+- [Godot CodeEdit](https://docs.godotengine.org/en/stable/classes/class_codeedit.html)：补全候选、请求与确认；固定引擎源码 `doc/classes/CodeEdit.xml`。
+- [Godot TextEdit](https://docs.godotengine.org/en/stable/classes/class_textedit.html)：复杂操作边界、撤销、选择与光标；固定引擎 `doc/classes/TextEdit.xml`。
+- [Godot Control](https://docs.godotengine.org/en/stable/classes/class_control.html)：拖放转发与位置；固定引擎 `doc/classes/Control.xml`。
+- [Dialogic Timeline text syntax](https://docs.dialogic.pro/timeline-text-syntax.html)：事件和缩进；以随包 Alpha20 `Resources/timeline.gd`、各模块事件 `from_text/to_text/get_shortcode_parameters` 为实际依据。
+- 设置默认值对照固定插件各模块的设置面板和运行读取点。`application/settings_catalog.gd` 与 `text_settings_document.gd` 保留已知目录，未知项目键通过原生 Variant 值入口编辑；不修改固定插件。
+
+网页资料与固定源码有差异时，以 Godot4.7.1 / Dialogic2.0-alpha-20 和指定参考工程的实际验证为准。
+
+## 0.8.0 实测差异补充
+
+- 固定 Godot CodeEdit 在字符串分隔符内补全时自动为候选和插入文本加引号；路径补全按完整引号 token 比较，不能按未带引号的显示文案判断失败。变量花括号上下文单独处理。
+- 固定 `addons/dialogic/Resources/timeline.gd` 的 `to_text()` 返回 `result.strip_edges()`，会规范化整个文档末尾空白；原生往返验证保留规范化前后记录，PAGE 原始字节保护单独验证。
+- 固定 CodeEdit 对近 4 MiB 的单行文本开启边界换行曾卡住；关闭该文档换行后，原样本的加载、视觉/文本切换和完整内容检查通过。阈值是界面布局保护，不改变 4 MiB 文档上限。
+
+固定 Godot 4.7.1 `scene/gui/code_edit.cpp` 的 `_filter_code_completion_candidates_impl()` 即便强制请求也会在零列空 token 时取消补全。PAGE 在空行使用原生 PopupMenu 呈现同一候选集合；缩进、空格和 `-` / `#` 使用 CodeEdit 的前缀配置。此处理不插入临时占位字符、不修改引擎。接受与取消、鼠标与键盘、单次撤销分别记录。
+
+## 0.8.0 翻译短码边界核对
+
+固定 Alpha20 `Resources/event.gd:is_string_full_event` 对短码检查末尾 `]`，`Resources/timeline.gd:process` 随后才提取翻译 ID。TextInput 后缀 `#id:` 因此需要空行隔开后续事件；原生解析会消耗这行分隔，原生保存器不会重新写出它，原生重保存再打开可能把后续事件并入 ID。本版不修改插件；PAGE 自身编辑保留原始分隔及 ID，含非法或多行 ID 的属性草稿禁止提交。完整原生往返用例保留为未运行，见发布说明与独立测试进度。
+
+### 0.8.0 设置运行核对补充
+
+固定 `Modules/Character/subsystem_portraits.gd:79` 的 `portraits/default_portrait` 是 PackedScene 路径，角色立绘名称从生成节点的 `portrait` 元数据核对。默认 Join/Leave 时长在真实节点动画元数据及完成移除后核对。
+
+固定 `Modules/Save/subsystem_save.gd:415` 在首次创建空 `global_info.txt` 时调用 `ConfigFile.save_encrypted_pass`。开启加密且使用新用户目录的本版执行285，PAGE目标进程与未修改原始参考工程均记录 `free_static` 的 `Parameter p_ptr is null` 错误；加密文件写入及读回的值断言通过。该运行错误仍使完整设置用例未完成，未修改固定依赖或忽略错误。

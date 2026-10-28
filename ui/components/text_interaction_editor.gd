@@ -49,6 +49,8 @@ func open_for_editor(editor: CodeEdit, content_workspace: RefCounted = null, req
 	translation_id = ""
 	if selected != null and selected.can_be_translated() and "#id:" in selected_raw:
 		translation_id = selected_raw.get_slice("#id:", 1).strip_edges()
+		if selected_raw.count("#id:") != 1 or RegEx.create_from_string("^[0-9a-fA-F]+$").search(translation_id) == null:
+			problem = "Invalid or ambiguous translation ID. Separate translated shortcodes from following events with a blank line, then reopen properties."
 		selected_raw = selected_raw.get_slice("#id:", 0)
 	if requested == "Text":
 		speaker = line("Character · blank for narration", "TextCharacter")
@@ -64,7 +66,7 @@ func open_for_editor(editor: CodeEdit, content_workspace: RefCounted = null, req
 		var event := Source.create(requested)
 		if selected != null:
 			var values: Dictionary = workspace.variable_document.runtime_values() if workspace != null and workspace.variable_document != null else {}
-			var checked := Source.inspect(selected_raw, selected, workspace, values, false)
+			var checked := Source.inspect(selected_raw, selected, workspace, values, false, false)
 			if checked.has("error"): problem = checked.error
 			else: event = checked.event
 		if requested == "Setting":
@@ -118,7 +120,7 @@ func _apply() -> void:
 		var runtime: Dictionary = workspace.variable_document.runtime_values() if workspace != null and workspace.variable_document != null else {}
 		var checked := Source.inspect(raw, Source.create(current_kind), workspace, runtime, false)
 		if checked.has("error"): message.text = checked.error; return
-	if current_kind == "Text" and not translation_id.is_empty(): raw += " #id:" + translation_id
+	if not translation_id.is_empty(): raw += " #id:" + translation_id
 	var inserted := prefix + raw.replace("\n", "\n" + prefix)
 	var lines := original_source.split("\n")
 	var candidate := PackedStringArray()

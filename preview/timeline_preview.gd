@@ -25,6 +25,8 @@ var displayed_texts: Array[String] = []
 var displayed_characters: Array[Dictionary] = []
 var _handler: DialogicGameHandler
 var _layout: Node
+var _start_line := 0
+var _start_index := 0
 var _source := ""
 var _source_path := ""
 var _runtime_root: DialogicTimeline
@@ -51,6 +53,7 @@ var _media: RefCounted
 var _state_panel: Window
 var _presentation: RefCounted
 var _layout_generation := 0
+var _metadata_click_sequence := 0
 
 
 func _init() -> void:
@@ -70,7 +73,7 @@ func _ready() -> void:
 	window_input.connect(_on_window_input)
 	if _handler == null:
 		last_error = "The Dialogic runtime autoload is unavailable."
-		_status.text = last_error
+		_set_status(last_error)
 		return
 	# The preview window owns keyboard input. Root-viewport input must not advance
 	# a timeline while the user edits a document or a modal dialog is open.
@@ -86,7 +89,7 @@ func _ready() -> void:
 	_handler.Inputs.auto_advance.toggled.connect(func(value: bool): _auto_button.set_pressed_no_signal(value))
 
 
-func start_preview(source: String, workspace: RefCounted = null, source_path: String = "") -> Error:
+func start_preview(source: String, workspace: RefCounted = null, source_path: String = "", start_line: int = 0) -> Error:
 	last_error = ""
 	if not is_inside_tree() or _handler == null:
 		last_error = "The preview window is not attached to a Dialogic project."
@@ -112,6 +115,18 @@ func start_preview(source: String, workspace: RefCounted = null, source_path: St
 	if timeline == null:
 		last_error = "Dialogic could not parse the supported timeline."
 		return ERR_PARSE_ERROR
+	_start_line = start_line
+	_start_index = 0
+	if start_line > 0:
+		var source_lines: Array = timeline.get_meta("source_lines", [])
+		_start_index = -1
+		for index: int in source_lines.size():
+			if source_lines[index] == start_line and not timeline.events[index] is DialogicEndBranchEvent:
+				_start_index = index; break
+		if _start_index < 0:
+			last_error = "No complete event at the selected source line."
+			Codec.GRAPH.release(timeline)
+			return ERR_INVALID_PARAMETER
 	var textures: Array[Resource] = []
 	if not _prepare_portraits(timeline, workspace, _generation + 1, textures):
 		Codec.GRAPH.release(timeline)
@@ -125,7 +140,7 @@ func start_preview(source: String, workspace: RefCounted = null, source_path: St
 	trace.clear()
 	displayed_texts.clear()
 	displayed_characters.clear()
-	_status.text = "Preparing Dialogic preview…"
+	_set_status("Preparing Dialogic preview…")
 	_advance_button.disabled = true
 	_restart_button.disabled = true
 	popup_centered(size)
@@ -152,7 +167,7 @@ func advance() -> void:
 
 func restart() -> void:
 	if not _source.is_empty() and not _starting:
-		start_preview(_source, _workspace, _source_path)
+		start_preview(_source, _workspace, _source_path, _start_line)
 
 
 func _begin(timeline: DialogicTimeline, generation: int, textures: Array[Resource]) -> void:
@@ -185,7 +200,7 @@ func _begin(timeline: DialogicTimeline, generation: int, textures: Array[Resourc
 	var presentation_error: Error = _presentation.begin(self, _handler, _workspace, generation)
 	if presentation_error != OK:
 		last_error = _presentation.last_error
-		_status.text = last_error
+		_set_status(last_error)
 		_starting = false
 		_restart_button.disabled = false
 		_restore_resources()
@@ -200,21 +215,21 @@ func _begin(timeline: DialogicTimeline, generation: int, textures: Array[Resourc
 			if event is DialogicStyleEvent: event.style_name = _presentation.remap_style_reference(event.style_name)
 	_localization = preload("res://preview/localization_session.gd").new()
 	if _localization.begin(_handler, _workspace, preview_locale, self) != OK:
-		last_error = _localization.last_error; _status.text = last_error; _starting = false; _restart_button.disabled = false; _restore_resources(); return
+		last_error = _localization.last_error; _set_status(last_error); _starting = false; _restart_button.disabled = false; _restore_resources(); return
 	_locale_picker.clear()
 	for locale: String in _localization.locales:
 		_locale_picker.add_item(locale)
 		if locale == TranslationServer.get_locale(): _locale_picker.select(_locale_picker.item_count - 1)
 	_media = preload("res://preview/media_session.gd").new()
 	if _media.begin(self, _handler, _workspace, timeline, _presentation) != OK:
-		last_error = _media.last_error; _status.text = last_error; _starting = false; _restart_button.disabled = false; _restore_resources(); return
+		last_error = _media.last_error; _set_status(last_error); _starting = false; _restart_button.disabled = false; _restore_resources(); return
 	# Loading under this Window keeps the upstream CanvasLayer in its viewport.
 	# No editor singleton or EditorInterface is involved in the preview path.
 	_layout = _handler.Styles.load_style("", self)
 	if _layout == null:
 		_starting = false
 		last_error = "The original Dialogic VN layout could not be loaded."
-		_status.text = last_error
+		_set_status(last_error)
 		_restart_button.disabled = false
 		_restore_resources()
 		return
@@ -231,14 +246,14 @@ func _begin(timeline: DialogicTimeline, generation: int, textures: Array[Resourc
 	running = true
 	_advance_button.disabled = false
 	_restart_button.disabled = false
-	_status.text = "Enter / Space or click the dialogue to advance. Esc / F6 closes preview."
+	_set_status("Enter / Space or click the dialogue to advance. Esc / F6 closes preview.")
 	# Full clear restores the application's defaults; replace them only in this
 	# runtime instance with an independent copy of the selected content root.
 	_handler.VAR.var_storage = timeline.get_meta("preview_variables", {}).duplicate(true)
 	_steps_without_input = 0
 	_input_surface.mouse_filter = Control.MOUSE_FILTER_STOP
 	_handler.set("preview_guard", _guard_event)
-	_handler.start_timeline(timeline)
+	_handler.start_timeline(timeline, _start_index)
 	preview_ready.emit()
 
 
@@ -408,6 +423,9 @@ func _discard_layout() -> void:
 
 
 func _on_window_input(event: InputEvent) -> void:
+	if event is InputEventMouse:
+		_route_preview_pointer(event)
+		return
 	if not event is InputEventKey:
 		return
 	var key := event as InputEventKey
@@ -423,6 +441,40 @@ func _on_window_input(event: InputEvent) -> void:
 		return
 	elif key.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE] and _handler.current_state != _handler.States.AWAITING_CHOICE:
 		set_input_as_handled()
+		advance()
+
+
+func _route_preview_pointer(event: InputEventMouse) -> void:
+	if not running or _starting or _text_input_visible() or _handler.current_state == _handler.States.AWAITING_CHOICE:
+		return
+	# Let native RichTextLabel handle links, hints and hover metadata. The chrome
+	# catches background clicks only; it must not cover interactive dialogue text.
+	for node: Node in get_tree().get_nodes_in_group("dialogic_dialog_text"):
+		if not node is RichTextLabel or node.get_viewport() != self or not node.is_visible_in_tree(): continue
+		var box := node as RichTextLabel
+		if not box.get_global_rect().has_point(event.position): continue
+		var native_input := Callable(box, "on_gui_input")
+		if box.gui_input.is_connected(native_input): box.gui_input.disconnect(native_input)
+		if not box.gui_input.is_connected(_on_preview_text_click): box.gui_input.connect(_on_preview_text_click)
+		if not box.meta_clicked.is_connected(_on_preview_meta_clicked): box.meta_clicked.connect(_on_preview_meta_clicked)
+		_input_surface.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		return
+	_input_surface.mouse_filter = Control.MOUSE_FILTER_STOP
+
+
+func _on_preview_text_click(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
+		# RichTextLabel emits meta_clicked on release. Wait until its GUI dispatch
+		# finishes before deciding whether this click should advance the timeline.
+		_advance_text_click.call_deferred(_generation, _handler.current_event_idx, _metadata_click_sequence)
+
+
+func _on_preview_meta_clicked(_meta: Variant) -> void:
+	_metadata_click_sequence += 1
+
+
+func _advance_text_click(generation: int, index: int, metadata_sequence: int) -> void:
+	if generation == _generation and index == _handler.current_event_idx and metadata_sequence == _metadata_click_sequence:
 		advance()
 
 
@@ -467,7 +519,7 @@ func _on_text_started(info: Dictionary) -> void:
 func _abort_presentation(problem: String) -> void:
 	if not running: return
 	last_error = problem
-	_status.text = problem
+	_set_status(problem)
 	running = false
 	_handler.Inputs.stop_timers()
 	_handler.paused = true
@@ -480,13 +532,18 @@ func _on_timeline_ended() -> void:
 	running = false
 	_starting = false
 	_advance_button.disabled = true
-	_status.text = "Timeline finished. Restart to play again, or close this window."
+	_set_status("Timeline finished. Restart to play again, or close this window.")
 	preview_finished.emit()
 
 
 var _localization: RefCounted
 var _locale_picker: OptionButton
 var preview_locale := ""
+
+func _set_status(message: String) -> void:
+	_status.text = message
+	_status.tooltip_text = message
+
 
 func _build_chrome() -> void:
 	var background := ColorRect.new()
@@ -511,21 +568,33 @@ func _build_chrome() -> void:
 	panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
 	panel.offset_bottom = 58
 	chrome.add_child(panel)
+	panel.resized.connect(func():
+		_input_surface.offset_top = panel.size.y
+		if is_instance_valid(_choice_canvas):
+			_choice_canvas.get_child(0).offset_top = maxf(90, panel.size.y + 8))
 	var margin := MarginContainer.new()
 	for side in ["left", "right"]:
 		margin.add_theme_constant_override("margin_" + side, 12)
 	for side in ["top", "bottom"]:
 		margin.add_theme_constant_override("margin_" + side, 10)
 	panel.add_child(margin)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
-	margin.add_child(row)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 4)
+	margin.add_child(column)
 	_status = Label.new()
-	_status.text = "Dialogic preview"
+	_set_status("Dialogic preview")
 	_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_status.max_lines_visible = 2
+	_status.clip_text = true
+	_status.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_status.add_theme_font_size_override("font_size", 14)
-	row.add_child(_status)
+	column.add_child(_status)
+	_status.custom_minimum_size.y = ceilf(_status.get_theme_font("font").get_height(_status.get_theme_font_size("font_size")) * 2)
+	var row := HFlowContainer.new()
+	row.add_theme_constant_override("h_separation", 8)
+	row.add_theme_constant_override("v_separation", 4)
+	column.add_child(row)
 	_locale_picker = OptionButton.new(); _locale_picker.name = "PreviewLocale"; _locale_picker.tooltip_text = "Change language and restart this preview"; row.add_child(_locale_picker)
 	# Fixed 4.7.1 release templates mis-handle embedded Popup signal cleanup.
 	preload("res://ui/components/native_popup.gd").configure(_locale_picker)
@@ -584,7 +653,7 @@ func _on_question_shown(info: Dictionary) -> void:
 		return
 	_input_surface.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_advance_button.disabled = true
-	_status.text = "Choose an available option. Esc / F6 closes preview."
+	_set_status("Choose an available option. Esc / F6 closes preview.")
 	if not info.get("invalid", false):
 		_steps_without_input = 0
 	question_observed.emit(info)
@@ -606,7 +675,7 @@ func _guard_event(timeline: DialogicTimeline, index: int) -> bool:
 	var lines: Array = timeline.get_meta("source_lines", [])
 	var source_line: int = lines[index] if index < lines.size() else 0
 	last_error = "%s · line %d: %s" % [timeline.get_meta("source_path", "Current timeline"), source_line, problem]
-	_status.text = last_error
+	_set_status(last_error)
 	running = false
 	_starting = false
 	_advance_button.disabled = true
@@ -714,7 +783,7 @@ func _prepare_choice_controls(count: int) -> void:
 	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	scroll.offset_left = 70
 	scroll.offset_right = -70
-	scroll.offset_top = 90
+	scroll.offset_top = maxf(90, _input_surface.offset_top + 8)
 	scroll.offset_bottom = -160
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.follow_focus = true
@@ -747,7 +816,7 @@ func _on_text_input_shown(_info: Dictionary) -> void:
 	_steps_without_input = 0
 	_input_surface.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_advance_button.disabled = true
-	_status.text = "Enter a value and confirm. Esc / F6 closes preview."
+	_set_status("Enter a value and confirm. Esc / F6 closes preview.")
 
 func _on_style_changed(_info: Dictionary) -> void:
 	if not running and not _starting: return
@@ -805,11 +874,11 @@ func _prepare_native_choices() -> void:
 
 
 func report_save_error(message: String) -> void:
-	_status.text = "Preview save: " + message
+	_set_status("Preview save: " + message)
 
 func report_localization_error(message: String) -> void:
 	last_error = message
-	_status.text = message
+	_set_status(message)
 
 func restore_saved_state(state: DialogicSaveState) -> void:
 	if _media == null: return
@@ -843,6 +912,6 @@ func restore_saved_state(state: DialogicSaveState) -> void:
 		save.load_completed.emit(ERR_INVALID_DATA)
 		return
 	_advance_button.disabled = false
-	_status.text = "Loaded preview state. Advance to continue."
+	_set_status("Loaded preview state. Advance to continue.")
 	save.load_pending = false
 	save.load_completed.emit(OK)

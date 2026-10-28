@@ -29,7 +29,7 @@ func stop() -> void:
 	pid = -1; state = "stopped"
 	_cleanup_payload()
 
-func start(workspace: RefCounted, mode: String = "project", entry: String = "", source_override: String = "", headless: bool = false) -> Dictionary:
+func start(workspace: RefCounted, mode: String = "project", entry: String = "", source_override: String = "", headless: bool = false, start_line: int = 0) -> Dictionary:
 	stop()
 	exit_code = -1; state = "preparing"; log_path = ""
 	var prepared := prepare(workspace, mode, entry, source_override)
@@ -53,7 +53,7 @@ func start(workspace: RefCounted, mode: String = "project", entry: String = "", 
 	# Startup driver flags are consumed by Godot before get_cmdline_args().
 	if AudioServer.get_driver_name() == "Dummy": args.append_array(["--audio-driver", "Dummy"])
 	if headless: args.append("--headless")
-	args.append_array(["--", "--page-mode", mode, "--page-entry", prepared.entry])
+	args.append_array(["--", "--page-mode", mode, "--page-entry", prepared.entry, "--page-line", str(start_line)])
 	var log := FileAccess.open(log_path, FileAccess.WRITE)
 	if log == null: return _fail("Cannot create the target process log.")
 	log.store_string("Starting independent target preview…\n"); log.close()

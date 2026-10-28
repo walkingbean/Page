@@ -1,5 +1,6 @@
 extends Window
 
+signal all_settings_requested
 signal saved
 const Document = preload("res://application/text_settings_document.gd")
 const Field = preload("res://ui/components/native_value_field.gd")
@@ -23,6 +24,10 @@ func _ready() -> void:
 	message = Label.new(); message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; message.size_flags_horizontal = Control.SIZE_EXPAND_FILL; message_scroll.add_child(message)
 	var scroll := ScrollContainer.new(); scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL; scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED; layout.add_child(scroll)
 	column = VBoxContainer.new(); column.size_flags_horizontal = Control.SIZE_EXPAND_FILL; column.add_theme_constant_override("separation", 8); scroll.add_child(column)
+	var all_settings := Button.new(); all_settings.name = "AllNativeSettings"; all_settings.text = "All native settings…"; layout.add_child(all_settings)
+	all_settings.pressed.connect(func():
+		if dirty(): message.text = "Save or close and discard these changes before opening all native settings."
+		else: all_settings_requested.emit())
 	var row := HBoxContainer.new(); layout.add_child(row)
 	save_button = Button.new(); save_button.name = "SaveSettings"; save_button.text = "Save settings"; save_button.pressed.connect(save_settings); row.add_child(save_button)
 	var close := Button.new(); close.text = "Close"; close.pressed.connect(_request_close); row.add_child(close)
