@@ -187,11 +187,21 @@ EOF
 
 # Keep copies outside the git checkout so a Cloud Agent image that
 # predates this commit can still re-run setup and the Linux checks.
-install -m 755 "$0" "${PREFIX}/setup_linux_test_env.sh"
+# `install` exits 1 when the source and destination are the same file,
+# which happens when this script is already the /opt copy.
+install_if_different() {
+  local src="$1" dest="$2"
+  if [[ ! -f "${src}" ]]; then
+    return 0
+  fi
+  if [[ -e "${dest}" && "$(readlink -f "${src}")" == "$(readlink -f "${dest}")" ]]; then
+    return 0
+  fi
+  install -m 755 "${src}" "${dest}"
+}
+install_if_different "$0" "${PREFIX}/setup_linux_test_env.sh"
 script_dir="$(cd "$(dirname "$0")" && pwd)"
-if [[ -f "${script_dir}/run_linux_test_checks.sh" ]]; then
-  install -m 755 "${script_dir}/run_linux_test_checks.sh" "${PREFIX}/run_linux_test_checks.sh"
-fi
+install_if_different "${script_dir}/run_linux_test_checks.sh" "${PREFIX}/run_linux_test_checks.sh"
 
 log "Godot ${version_line}"
 log "templates ${TEMPLATE_DEST} (${installed_template})"
